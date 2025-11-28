@@ -7464,11 +7464,6 @@ game:GetService('RunService').Heartbeat:Connect(function(dt)
         if not gunInChar and not gunInBackpack then
             AutoLoadoutActive = true
         else
-            -- Thả tool nếu đang cầm trước khi kiểm tra/mua ammo
-            if gunInChar then
-                gunInChar.Parent = backpack
-                task.wait(0.1)  
-            end
             -- Kiểm tra ammo (súng giờ ở backpack)
             local equippedGun = backpack:FindFirstChild(headshots.AutoLoadout.Gun)
             if equippedGun and equippedGun:FindFirstChild("Ammo") and equippedGun.Ammo.Value == 0 then
@@ -7481,6 +7476,10 @@ game:GetService('RunService').Heartbeat:Connect(function(dt)
                             local hrp = char.HumanoidRootPart
                             local saved = hrp.CFrame
                             hrp.CFrame = shop.Head.CFrame
+			                local currentTool = char:FindFirstChildOfClass("Tool")
+			                if currentTool then
+			                    currentTool.Parent = plr.Backpack
+			                end
                             for j = 1, 5 do
                                 fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
                             end
@@ -7512,15 +7511,14 @@ game:GetService('RunService').Heartbeat:Connect(function(dt)
         pcall(function()
             -- Buy Single (thả bất kỳ tool đang cầm trước khi mua)
             if BuyingSingle and not char:FindFirstChild(SelectedGun) and not plr.Backpack:FindFirstChild(SelectedGun) then
-                -- Thả tool đang cầm nếu có
-                local currentTool = char:FindFirstChildOfClass("Tool")
-                if currentTool then
-                    currentTool.Parent = plr.Backpack
-                end
                 local shop = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[SelectedGun].ShopName)
                 if shop and shop:FindFirstChild("Head") then
                     local saved = hrp.CFrame
                     hrp.CFrame = shop.Head.CFrame
+	                local currentTool = char:FindFirstChildOfClass("Tool")
+	                if currentTool then
+	                    currentTool.Parent = plr.Backpack
+	                end
                     for i = 1, 10 do
                         fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
                     end
@@ -7546,6 +7544,10 @@ game:GetService('RunService').Heartbeat:Connect(function(dt)
                             end
                             local saved = hrp.CFrame
                             hrp.CFrame = shop.Head.CFrame
+			                local currentTool = char:FindFirstChildOfClass("Tool")
+			                if currentTool then
+			                    currentTool.Parent = plr.Backpack
+			                end
                             for i = 1, 5 do
                                 fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
                             end
@@ -7561,15 +7563,15 @@ game:GetService('RunService').Heartbeat:Connect(function(dt)
             -- Auto Loadout (mua súng nếu chưa có - ammo đã xử lý ở trên)
             if headshots.AutoLoadout.Enabled and headshots.AutoLoadout.Gun and ShopTable[headshots.AutoLoadout.Gun] and not char:FindFirstChild(headshots.AutoLoadout.Gun) and not plr.Backpack:FindFirstChild(headshots.AutoLoadout.Gun) then
                 -- Thả tool đang cầm nếu có
-                local currentTool = char:FindFirstChildOfClass("Tool")
-                if currentTool then
-                    currentTool.Parent = plr.Backpack
-                    task.wait(0.1)
-                end
                 local ShopItem = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[headshots.AutoLoadout.Gun].ShopName)
                 if ShopItem and ShopItem:FindFirstChild("Head") then
                     local saved = hrp.CFrame
                     hrp.CFrame = ShopItem.Head.CFrame
+	                local currentTool = char:FindFirstChildOfClass("Tool")
+	                if currentTool then
+	                    currentTool.Parent = plr.Backpack
+	                    task.wait(0.1)
+	                end
                     for i = 1, 5 do
                         fireclickdetector(ShopItem:FindFirstChildOfClass("ClickDetector"))
                     end
@@ -7586,6 +7588,10 @@ game:GetService('RunService').Heartbeat:Connect(function(dt)
                     local oldArmor = char.BodyEffects.Armor.Value
                     local saved = hrp.CFrame
                     hrp.CFrame = shop.Head.CFrame
+	                local currentTool = char:FindFirstChildOfClass("Tool")
+	                if currentTool then
+	                    currentTool.Parent = plr.Backpack
+	                end
                     for i = 1, 5 do
                         fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
                     end
@@ -7669,7 +7675,7 @@ local originalExposureCompensation = LightingService.ExposureCompensation
 local originalColorShiftBottom = LightingService.ColorShift_Bottom
 local originalColorShiftTop = LightingService.ColorShift_Top
 local originalGeographicLatitude = LightingService.GeographicLatitude
-local nebulaThemeColor = Color3.fromRGB(200, 200, 200)
+local nebulaThemeColor = Color3.fromRGB(173, 216, 230)
 local Visuals = {}
 local WorldGroup = Tabs.Visual:AddRightGroupbox('World')
 WorldGroup:AddToggle('CustomAmbient', {
@@ -7955,7 +7961,7 @@ WorldGroup:AddToggle('NebulaTheme', {
             a.Glare = 1
             a.Haze = 2
             a.Color = nebulaThemeColor
-            a.Decay = Color3.fromRGB(200, 200, 200)
+            a.Decay = Color3.fromRGB(173, 216, 230)
             a.Name = "NebulaAtmosphere"
             LightingService.Ambient = nebulaThemeColor
             LightingService.OutdoorAmbient = nebulaThemeColor
@@ -7975,7 +7981,7 @@ WorldGroup:AddToggle('NebulaTheme', {
         end
     end
 }):AddColorPicker('NebulaColor', {
-    Default = Color3.fromRGB(200, 200, 200),
+    Default = Color3.fromRGB(173, 216, 230),
     Title = 'Nebula Color',
     Callback = function(Value)
         nebulaThemeColor = Value
