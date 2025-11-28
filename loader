@@ -1,5 +1,5 @@
 local success, err = pcall(function()
-loadstring(game:HttpGet('https://raw.githubusercontent.com/Kazamatcha/matcha.tea/refs/heads/main/key%20system'))()
+loadstring(game:HttpGet('https://raw.githubusercontent.com/anhchongyeuvo/kazama-vhuy/refs/heads/main/keysys'))()
 if not game:IsLoaded() then 
     game.Loaded:Wait()
 end
