@@ -990,7 +990,7 @@ AutoKillGroup:AddToggle('AutoKillDesync', {
 local function getValidTargets()
     local targets = {}
     for _, player in pairs(players:GetPlayers()) do
-        if player ~= localPlayer and isAlive(player) then
+        if player ~= localPlayer then
             if matchacc.Checks.Team and player.Team == localPlayer.Team then continue end
             if matchacc.Checks.Forcefield and player.Character:FindFirstChild("ForceField") then continue end
             table.insert(targets, player.Name)
