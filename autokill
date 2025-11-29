@@ -1,0 +1,1148 @@
+local rs = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local lp = game.Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local TeleportService = game:GetService("TeleportService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TextChatService = game:GetService("TextChatService")
+local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
+if chatWindow then
+    chatWindow.Enabled = true -- Bật lại chat window
+end
+-- MainEvent detection
+local MainEvent = nil
+if ReplicatedStorage:FindFirstChild("MainEvent") then -- Da Hood
+    MainEvent = ReplicatedStorage.MainEvent
+elseif ReplicatedStorage:FindFirstChild("MAINEVENT") then -- Idk Da Hood
+    MainEvent = ReplicatedStorage.MAINEVENT
+elseif ReplicatedStorage:FindFirstChild("MainRemotes") and ReplicatedStorage.MainRemotes:FindFirstChild("MainRemoteEvent") then -- Der Hood
+    MainEvent = ReplicatedStorage.MainRemotes.MainRemoteEvent
+else
+    print("Couldn't find MainEvent, game not supported.")
+end
+local animations = {
+C = "http://www.roblox.com/asset/?id=15609995579",
+}
+local currentTrack = nil
+local currentKey = nil
+local renderConnection = nil
+local inputConnection = nil
+local prediction = 0
+local resolverEnabled = true
+local function setup(char)
+local hum = char:WaitForChild("Humanoid", 5)
+if not hum then return end
+local animator = hum:FindFirstChildOfClass("Animator") or Instance.new("Animator", hum)
+-- Ngắt kết nối cũ
+if renderConnection then renderConnection:Disconnect() end
+if inputConnection then inputConnection:Disconnect() end
+-- Dừng animation nếu di chuyển
+renderConnection = rs.RenderStepped:Connect(function()
+if currentTrack and hum.MoveDirection.Magnitude > 0 then
+currentTrack:Stop()
+currentTrack = nil
+currentKey = nil
+end
+end)
+inputConnection = uis.InputBegan:Connect(function(input, gp)
+if gp then return end
+local key = input.KeyCode.Name
+local animId = animations[key]
+if animId and hum.MoveDirection.Magnitude == 0 then
+-- Dừng animation cũ nếu đang chạy
+if currentTrack then
+currentTrack:Stop()
+currentTrack = nil
+currentKey = nil
+end
+local anim = Instance.new("Animation")
+anim.AnimationId = animId
+local track = animator:LoadAnimation(anim)
+track:Play()
+currentTrack = track
+currentKey = key
+end
+end)
+end
+-- Nếu đã có character
+if lp.Character then
+setup(lp.Character)
+end
+-- Khi respawn
+lp.CharacterAdded:Connect(function(char)
+currentTrack = nil
+currentKey = nil
+task.wait(0.2)
+setup(char)
+end)
+local Locked = false
+local CurrentTarget = nil
+local s = 1
+-- Check sống chuẩn cho game + Da Hood
+local function isAlive(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
+    -- Da Hood body checks
+    local be = plr.Character:FindFirstChild("BodyEffects")
+    if be then
+        local ko = be:FindFirstChild("K.O")
+        local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
+        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+            return false
+        end
+    end
+    return true
+end
+-- Check có bị che tường không
+local function isVisible(part)
+    local origin = Camera.CFrame.Position
+    local direction = (part.Position - origin)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = {lp.Character}
+    local hit = workspace:Raycast(origin, direction, params)
+    if not hit then return true end
+    return hit.Instance:IsDescendantOf(part.Parent)
+end
+-- Lấy target gần chuột nhất, không bị tường
+local function getClosestToMouse()
+    local mousePos = uis:GetMouseLocation()
+    local closest, shortest = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= lp and isAlive(plr) then
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (mousePos - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                    if dist < shortest then
+                        closest = plr
+                        shortest = dist
+                    end
+                end
+            end
+        end
+    end
+    return closest
+end
+uis.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Q then
+        if CurrentTarget then
+            CurrentTarget = nil
+        else
+            CurrentTarget = getClosestToMouse()
+        end
+    end
+end)
+local function GetVelocity(char)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return Vector3.zero end
+    local oldPos = hrp.Position
+    local oldTick = tick()
+    task.wait(0.1)
+    local newPos = hrp.Position
+    local newTick = tick()
+    local dt = (newTick - oldTick)
+    if dt <= 0 then return Vector3.zero end
+    return (newPos - oldPos) / dt
+end
+workspace.FallenPartsDestroyHeight = -math.huge
+local tracerOutline = Drawing.new("Line")
+tracerOutline.Visible = false
+tracerOutline.Color = Color3.fromRGB(0, 0, 0) -- Màu outline mặc định (đỏ), thay đổi tùy ý
+tracerOutline.Thickness = 4
+local tracer = Drawing.new("Line")
+tracer.Visible = false
+tracer.Color = Color3.fromRGB(155, 125, 175) -- Màu fill mặc định (trắng), thay đổi tùy ý
+tracer.Thickness = 2
+RunService.RenderStepped:Connect(function()
+    if CurrentTarget and CurrentTarget.Character and isAlive(CurrentTarget) then
+        local head = CurrentTarget.Character:FindFirstChild("Head")
+        local humanoidRootPart = CurrentTarget.Character:FindFirstChild("HumanoidRootPart")
+       
+        if head and humanoidRootPart then
+            -- Xóa highlight cũ nếu switch target
+            if lastHighlightedPlayer and lastHighlightedPlayer ~= CurrentTarget then
+                local oldHighlight = lastHighlightedPlayer.Character:FindFirstChild("Highlight")
+                if oldHighlight then oldHighlight:Destroy() end
+            end
+            lastHighlightedPlayer = CurrentTarget
+           
+            -- Highlight mới (update color mỗi frame cho mượt)
+            local highlight = CurrentTarget.Character:FindFirstChild("Highlight")
+            if not highlight then
+                highlight = Instance.new("Highlight")
+                highlight.Parent = CurrentTarget.Character
+                highlight.Adornee = CurrentTarget.Character
+                highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            end
+            highlight.FillTransparency = 0.5
+            highlight.OutlineTransparency = 0
+            highlight.FillColor = Color3.fromRGB(155, 125, 175)
+            highlight.OutlineColor = Color3.fromRGB(129, 105, 145) -- Vàng outline
+           
+            -- Tracer (predict pos để ít flicker hơn khi di chuyển nhanh)
+            local vel = GetVelocity(CurrentTarget.Character) -- Reuse func có sẵn
+            local predictedHeadPos = head.Position + vel * prediction -- Sync với aim predict
+            local mouseScreenPosition = UserInputService:GetMouseLocation()
+            local headScreenPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(predictedHeadPos)
+           
+            if onScreen or true then -- Luôn visible nếu target valid (bỏ strict onScreen để fix "biến mất")
+                local adjustedMousePosition = Vector2.new(mouseScreenPosition.X, mouseScreenPosition.Y)
+               
+                tracerOutline.From = adjustedMousePosition
+                tracerOutline.To = Vector2.new(headScreenPosition.X, headScreenPosition.Y)
+                tracerOutline.Visible = true
+               
+                tracer.From = adjustedMousePosition
+                tracer.To = Vector2.new(headScreenPosition.X, headScreenPosition.Y)
+                tracer.Visible = true
+            else
+                tracerOutline.Visible = false
+                tracer.Visible = false
+            end
+        else
+            tracerOutline.Visible = false
+            tracer.Visible = false
+        end
+    else
+        -- XÓA highlight + ẩn tracer khi bỏ target (FIX chính)
+        if lastHighlightedPlayer and lastHighlightedPlayer.Character then
+            local highlight = lastHighlightedPlayer.Character:FindFirstChild("Highlight")
+            if highlight then highlight:Destroy() end
+        end
+        lastHighlightedPlayer = nil
+        tracerOutline.Visible = false
+        tracer.Visible = false
+    end
+    if Locked and CurrentTarget then
+        if not isAlive(CurrentTarget) or not isAlive(lp) then return end
+        local head = CurrentTarget.Character and CurrentTarget.Character:FindFirstChild("Head")
+        if not head then return end
+        if not isVisible(head) then return end
+local vel = GetVelocity(CurrentTarget.Character)
+local predictedPos = head.Position + vel * prediction
+        -- Aim vào đầu
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, predictedPos), s)
+    end
+end)
+-- Lệnh .re để rejoin
+lp.Chatted:Connect(function(msg)
+    msg = msg:lower()
+    if msg == ".rej" or msg == ".rejoin" then
+        TeleportService:Teleport(game.PlaceId, lp)
+    elseif msg == ".re" or msg == ".killlocal" then
+        local char = lp.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid.Health = 0
+        end
+    end
+end)
+-- Playerlist GUI (from previous version, keeping it professional black-purple theme)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlayerListGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.CoreGui
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 370)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Đen
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(128, 0, 128) -- Tím accent
+UIStroke.Thickness = 2
+UIStroke.Transparency = 0.5
+UIStroke.Parent = MainFrame
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Player List"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextSize = 16
+TitleLabel.Parent = MainFrame
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, 0, 1, -35)
+ScrollingFrame.Position = UDim2.new(0, 0, 0, 30)
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.BorderSizePixel = 0
+ScrollingFrame.ScrollBarThickness = 4
+ScrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(128, 0, 128)
+ScrollingFrame.Parent = MainFrame
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.Name
+UIListLayout.Parent = ScrollingFrame
+-- Panel bên phải cho info và buttons
+local InfoPanel = Instance.new("Frame")
+InfoPanel.Size = UDim2.new(0, 250, 0, 300)
+InfoPanel.Position = UDim2.new(1, 10, 0, 0)
+InfoPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+InfoPanel.BorderSizePixel = 0
+InfoPanel.Visible = false
+InfoPanel.Parent = MainFrame
+local UICornerInfo = Instance.new("UICorner")
+UICornerInfo.CornerRadius = UDim.new(0, 8)
+UICornerInfo.Parent = InfoPanel
+local UIStrokeInfo = Instance.new("UIStroke")
+UIStrokeInfo.Color = Color3.fromRGB(128, 0, 128)
+UIStrokeInfo.Thickness = 2
+UIStrokeInfo.Transparency = 0.5
+UIStrokeInfo.Parent = InfoPanel
+-- Buttons trong InfoPanel
+local ButtonFrame = Instance.new("Frame")
+ButtonFrame.Size = UDim2.new(1, 0, 0, 150)
+ButtonFrame.BackgroundTransparency = 1
+ButtonFrame.Parent = InfoPanel
+local SpectateButton = Instance.new("TextButton")
+SpectateButton.Size = UDim2.new(1, 0, 0, 30)
+SpectateButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpectateButton.Text = "Spectate: Off"
+SpectateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpectateButton.Font = Enum.Font.Gotham
+SpectateButton.TextSize = 14
+SpectateButton.Parent = ButtonFrame
+local UICornerSpectate = Instance.new("UICorner")
+UICornerSpectate.CornerRadius = UDim.new(0, 6)
+UICornerSpectate.Parent = SpectateButton
+local GotoButton = Instance.new("TextButton")
+GotoButton.Size = UDim2.new(1, 0, 0, 30)
+GotoButton.Position = UDim2.new(0, 0, 0, 30)
+GotoButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+GotoButton.Text = "Go To"
+GotoButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+GotoButton.Font = Enum.Font.Gotham
+GotoButton.TextSize = 14
+GotoButton.Parent = ButtonFrame
+local UICornerGoto = Instance.new("UICorner")
+UICornerGoto.CornerRadius = UDim.new(0, 6)
+UICornerGoto.Parent = GotoButton
+local ViewInvButton = Instance.new("TextButton")
+ViewInvButton.Size = UDim2.new(1, 0, 0, 30)
+ViewInvButton.Position = UDim2.new(0, 0, 0, 60)
+ViewInvButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ViewInvButton.Text = "View Inventory"
+ViewInvButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ViewInvButton.Font = Enum.Font.Gotham
+ViewInvButton.TextSize = 14
+ViewInvButton.Parent = ButtonFrame
+local UICornerViewInv = Instance.new("UICorner")
+UICornerViewInv.CornerRadius = UDim.new(0, 6)
+UICornerViewInv.Parent = ViewInvButton
+local SetTargetButton = Instance.new("TextButton")
+SetTargetButton.Size = UDim2.new(1, 0, 0, 30)
+SetTargetButton.Position = UDim2.new(0, 0, 0, 90)
+SetTargetButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SetTargetButton.Text = "Set Target"
+SetTargetButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SetTargetButton.Font = Enum.Font.Gotham
+SetTargetButton.TextSize = 14
+SetTargetButton.Parent = ButtonFrame
+local UICornerSetTarget = Instance.new("UICorner")
+UICornerSetTarget.CornerRadius = UDim.new(0, 6)
+UICornerSetTarget.Parent = SetTargetButton
+local AutoKillButton = Instance.new("TextButton")
+AutoKillButton.Size = UDim2.new(1, 0, 0, 30)
+AutoKillButton.Position = UDim2.new(0, 0, 0, 120)
+AutoKillButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AutoKillButton.Text = "Auto Kill: Off"
+AutoKillButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoKillButton.Font = Enum.Font.Gotham
+AutoKillButton.TextSize = 14
+AutoKillButton.Parent = ButtonFrame
+local UICornerAutoKill = Instance.new("UICorner")
+UICornerAutoKill.CornerRadius = UDim.new(0, 6)
+UICornerAutoKill.Parent = AutoKillButton
+-- Info Frame dưới buttons
+local PlayerInfoFrame = Instance.new("Frame")
+PlayerInfoFrame.Size = UDim2.new(1, 0, 1, -80)
+PlayerInfoFrame.Position = UDim2.new(0, 0, 0, 150)
+PlayerInfoFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+PlayerInfoFrame.Parent = InfoPanel
+local UICornerPlayerInfo = Instance.new("UICorner")
+UICornerPlayerInfo.CornerRadius = UDim.new(0, 6)
+UICornerPlayerInfo.Parent = PlayerInfoFrame
+local AvatarImage = Instance.new("ImageLabel")
+AvatarImage.Size = UDim2.new(0, 80, 0, 80)
+AvatarImage.Position = UDim2.new(0.5, -40, 0, 10)
+AvatarImage.BackgroundTransparency = 1
+AvatarImage.Image = "rbxassetid://0" -- Placeholder
+AvatarImage.Parent = PlayerInfoFrame
+local UICornerAvatar = Instance.new("UICorner")
+UICornerAvatar.CornerRadius = UDim.new(1, 0) -- Circle
+UICornerAvatar.Parent = AvatarImage
+local DisplayNameLabel = Instance.new("TextLabel")
+DisplayNameLabel.Size = UDim2.new(1, 0, 0, 20)
+DisplayNameLabel.Position = UDim2.new(0, 0, 0, 100)
+DisplayNameLabel.BackgroundTransparency = 1
+DisplayNameLabel.Text = "DisplayName (@Username)"
+DisplayNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+DisplayNameLabel.Font = Enum.Font.GothamBold
+DisplayNameLabel.TextSize = 14
+DisplayNameLabel.Parent = PlayerInfoFrame
+local HealthBarFrame = Instance.new("Frame")
+HealthBarFrame.Size = UDim2.new(0.9, 0, 0, 10)
+HealthBarFrame.Position = UDim2.new(0.05, 0, 0, 130)
+HealthBarFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+HealthBarFrame.Parent = PlayerInfoFrame
+local UICornerHealthFrame = Instance.new("UICorner")
+UICornerHealthFrame.CornerRadius = UDim.new(0, 5)
+UICornerHealthFrame.Parent = HealthBarFrame
+local HealthBar = Instance.new("Frame")
+HealthBar.Size = UDim2.new(1, 0, 1, 0)
+HealthBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Default green
+HealthBar.Parent = HealthBarFrame
+local UICornerHealth = Instance.new("UICorner")
+UICornerHealth.CornerRadius = UDim.new(0, 5)
+UICornerHealth.Parent = HealthBar
+local HealthText = Instance.new("TextLabel")
+HealthText.Size = UDim2.new(1, 0, 0, 20)
+HealthText.Position = UDim2.new(0, 0, 0, 145)
+HealthText.BackgroundTransparency = 1
+HealthText.Text = "100/100"
+HealthText.TextColor3 = Color3.fromRGB(255, 255, 255)
+HealthText.Font = Enum.Font.Gotham
+HealthText.TextSize = 12
+HealthText.Parent = PlayerInfoFrame
+local AgeLabel = Instance.new("TextLabel")
+AgeLabel.Size = UDim2.new(1, 0, 0, 20)
+AgeLabel.Position = UDim2.new(0, 0, 0, 170)
+AgeLabel.BackgroundTransparency = 1
+AgeLabel.Text = "Age: 0 days"
+AgeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+AgeLabel.Font = Enum.Font.Gotham
+AgeLabel.TextSize = 12
+AgeLabel.Parent = PlayerInfoFrame
+local DistanceLabel = Instance.new("TextLabel")
+DistanceLabel.Size = UDim2.new(1, 0, 0, 20)
+DistanceLabel.Position = UDim2.new(0, 0, 0, 190)
+DistanceLabel.BackgroundTransparency = 1
+DistanceLabel.Text = "Distance: 0 studs"
+DistanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+DistanceLabel.Font = Enum.Font.Gotham
+DistanceLabel.TextSize = 12
+DistanceLabel.Parent = PlayerInfoFrame
+-- Inventory Frame
+local InventoryFrame = Instance.new("Frame")
+InventoryFrame.Size = UDim2.new(0, 200, 0, 250)
+InventoryFrame.Position = UDim2.new(1, 10, 0, 0)
+InventoryFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+InventoryFrame.BorderSizePixel = 0
+InventoryFrame.Visible = false
+InventoryFrame.Parent = InfoPanel
+local UICornerInv = Instance.new("UICorner")
+UICornerInv.CornerRadius = UDim.new(0, 8)
+UICornerInv.Parent = InventoryFrame
+local UIStrokeInv = Instance.new("UIStroke")
+UIStrokeInv.Color = Color3.fromRGB(128, 0, 128)
+UIStrokeInv.Thickness = 2
+UIStrokeInv.Transparency = 0.5
+UIStrokeInv.Parent = InventoryFrame
+local InvScrolling = Instance.new("ScrollingFrame")
+InvScrolling.Size = UDim2.new(1, 0, 1, 0)
+InvScrolling.BackgroundTransparency = 1
+InvScrolling.ScrollBarThickness = 4
+InvScrolling.ScrollBarImageColor3 = Color3.fromRGB(128, 0, 128)
+InvScrolling.Parent = InventoryFrame
+local UIListLayoutInv = Instance.new("UIListLayout")
+UIListLayoutInv.Parent = InvScrolling
+-- Watermark
+local WatermarkFrame = Instance.new("Frame")
+WatermarkFrame.Size = UDim2.new(0, 200, 0, 30)
+WatermarkFrame.Position = UDim2.new(0, 0, 0, -40)
+WatermarkFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+WatermarkFrame.Parent = MainFrame
+local AccentLine = Instance.new("Frame")
+AccentLine.Size = UDim2.new(1, 0, 0, 2)
+AccentLine.BackgroundColor3 = Color3.fromRGB(128, 0, 128)
+AccentLine.Parent = WatermarkFrame
+local WatermarkText = Instance.new("TextLabel")
+WatermarkText.Size = UDim2.new(1, 0, 1, -2)
+WatermarkText.Position = UDim2.new(0, 0, 0, 2)
+WatermarkText.BackgroundTransparency = 1
+WatermarkText.Text = "matcha / 0 ms / 0 fps"
+WatermarkText.TextColor3 = Color3.fromRGB(255, 255, 255)
+WatermarkText.Font = Enum.Font.Gotham
+WatermarkText.TextSize = 12
+WatermarkText.Parent = WatermarkFrame
+local function makeSmoothDraggable(frame, speed)
+    speed = speed or 0.2
+    local dragging, dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        local goal = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(frame, TweenInfo.new(speed, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Position = goal}):Play()
+    end
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then update(input) end
+    end)
+end
+makeSmoothDraggable(MainFrame)
+-- Variables
+local selectedPlayer = nil
+local spectating = false
+local guiVisible = true
+ScreenGui.Enabled = guiVisible
+local AutoKill = false
+-- Function to update player list
+local function updatePlayerList()
+    for _, child in ipairs(ScrollingFrame:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+   
+    local players = Players:GetPlayers()
+    table.sort(players, function(a, b) return a.Name < b.Name end)
+   
+    for _, plr in ipairs(players) do
+        if plr ~= lp then
+            local button = Instance.new("TextButton")
+            button.Size = UDim2.new(1, 0, 0, 30)
+            button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            button.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
+            button.TextColor3 = Color3.fromRGB(255, 255, 255)
+            button.Font = Enum.Font.Gotham
+            button.TextSize = 14
+            button.Parent = ScrollingFrame
+           
+            local UICornerBtn = Instance.new("UICorner")
+            UICornerBtn.CornerRadius = UDim.new(0, 4)
+            UICornerBtn.Parent = button
+           
+            button.MouseButton1Click:Connect(function()
+                if selectedPlayer == plr then
+                    selectedPlayer = nil
+                    InfoPanel.Visible = false
+                else
+                    selectedPlayer = plr
+                    InfoPanel.Visible = true
+                    updateInfoPanel()
+                end
+                updateHighlights()
+            end)
+        end
+    end
+   
+    ScrollingFrame.CanvasSize = UDim2.new(0, 0, 0, #ScrollingFrame:GetChildren() * 30)
+end
+local function updateHighlights()
+    for _, button in ipairs(ScrollingFrame:GetChildren()) do
+        if button:IsA("TextButton") then
+            if selectedPlayer and button.Text:find(selectedPlayer.Name) then
+                button.BackgroundColor3 = Color3.fromRGB(60, 60, 60) -- Đậm hơn
+            else
+                button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            end
+        end
+    end
+end
+local function getAccountAge(plr)
+    local age = plr.AccountAge
+    return math.floor(age) .. " days"
+end
+local function getDistance(plr)
+    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+        return math.floor((lp.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude) .. " studs"
+    end
+    return "N/A"
+end
+local function getHealthColor(healthPercent)
+    if healthPercent > 0.75 then
+        return Color3.fromRGB(0, 255, 0) -- Xanh
+    elseif healthPercent > 0.5 then
+        return Color3.fromRGB(255, 255, 0) -- Vàng
+    elseif healthPercent > 0.25 then
+        return Color3.fromRGB(255, 165, 0) -- Cam
+    else
+        return Color3.fromRGB(255, 0, 0) -- Đỏ
+    end
+end
+local function updateInfoPanel()
+    if not selectedPlayer then return end
+   
+    local thumb = Players:GetUserThumbnailAsync(selectedPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150)
+    AvatarImage.Image = thumb
+   
+    DisplayNameLabel.Text = selectedPlayer.DisplayName .. " (@" .. selectedPlayer.Name .. ")"
+   
+    local hum = selectedPlayer.Character and selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local health = hum and hum.Health or 0
+    local maxHealth = hum and hum.MaxHealth or 100
+    HealthText.Text = math.floor(health) .. "/" .. maxHealth
+   
+    local healthPercent = health / maxHealth
+    HealthBar.Size = UDim2.new(healthPercent, 0, 1, 0)
+    HealthBar.BackgroundColor3 = getHealthColor(healthPercent)
+   
+    AgeLabel.Text = "Age: " .. getAccountAge(selectedPlayer)
+    DistanceLabel.Text = "Distance: " .. getDistance(selectedPlayer)
+   
+    SetTargetButton.Text = (CurrentTarget == selectedPlayer) and "Untarget" or "Set Target"
+    SpectateButton.Text = "Spectate: " .. (spectating and "On" or "Off")
+    AutoKillButton.Text = "Auto Kill: " .. (AutoKill and "On" or "Off")
+end
+local function updateInventory()
+    for _, child in ipairs(InvScrolling:GetChildren()) do
+        if child:IsA("TextLabel") then
+            child:Destroy()
+        end
+    end
+   
+    if not selectedPlayer or not selectedPlayer.Character then return end
+   
+    local backpack = selectedPlayer:FindFirstChildOfClass("Backpack")
+    local charTools = selectedPlayer.Character:GetChildren()
+   
+    local items = {}
+    if backpack then
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                table.insert(items, tool.Name)
+            end
+        end
+    end
+    for _, tool in ipairs(charTools) do
+        if tool:IsA("Tool") then
+            table.insert(items, tool.Name)
+        end
+    end
+   
+    for _, item in ipairs(items) do
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 0, 20)
+        label.BackgroundTransparency = 1
+        label.Text = "- " .. item
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 12
+        label.Parent = InvScrolling
+    end
+   
+    InvScrolling.CanvasSize = UDim2.new(0, 0, 0, #InvScrolling:GetChildren() * 20)
+end
+-- Thêm listener để xử lý target chết/hồi sinh
+local function handleSpectateRespawn(plr)
+    if spectating and plr == selectedPlayer then
+        plr.CharacterAdded:Connect(function(newChar)
+            if spectating then
+                task.wait(0.1) -- Đợi char load
+                workspace.CurrentCamera.CameraSubject = newChar:FindFirstChildOfClass("Humanoid")
+            end
+        end)
+    end
+end
+-- Sửa SpectateButton connection
+SpectateButton.MouseButton1Click:Connect(function()
+    spectating = not spectating
+    SpectateButton.Text = "Spectate: " .. (spectating and "On" or "Off")
+    if spectating and selectedPlayer and selectedPlayer.Character then
+        workspace.CurrentCamera.CameraSubject = selectedPlayer.Character:FindFirstChildOfClass("Humanoid")
+        handleSpectateRespawn(selectedPlayer) -- Gắn listener respawn
+    else
+        workspace.CurrentCamera.CameraSubject = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+    end
+end)
+GotoButton.MouseButton1Click:Connect(function()
+    if selectedPlayer and selectedPlayer.Character and lp.Character then
+        lp.Character.HumanoidRootPart.CFrame = selectedPlayer.Character.HumanoidRootPart.CFrame + Vector3.new(0, 0, -3)
+    end
+end)
+ViewInvButton.MouseButton1Click:Connect(function()
+    InventoryFrame.Visible = not InventoryFrame.Visible
+    if InventoryFrame.Visible then
+        updateInventory()
+    end
+end)
+SetTargetButton.MouseButton1Click:Connect(function()
+    if CurrentTarget == selectedPlayer then
+        CurrentTarget = nil
+        SetTargetButton.Text = "Set Target"
+    else
+        CurrentTarget = selectedPlayer
+        SetTargetButton.Text = "Untarget"
+    end
+end)
+AutoKillButton.MouseButton1Click:Connect(function()
+    AutoKill = not AutoKill
+    AutoKillButton.Text = "Auto Kill: " .. (AutoKill and "On" or "Off")
+end)
+-- Toggle GUI
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.V then
+        guiVisible = not guiVisible
+        ScreenGui.Enabled = guiVisible
+    end
+end)
+-- Update loops
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(function(plr)
+    if selectedPlayer == plr then
+        selectedPlayer = nil
+        InfoPanel.Visible = false
+    end
+    updatePlayerList()
+end)
+updatePlayerList()
+RunService.RenderStepped:Connect(function()
+    if selectedPlayer then
+        updateInfoPanel()
+    end
+   
+    -- Update watermark
+    local fps = math.floor(1 / RunService.RenderStepped:Wait())
+    local ping = math.floor(lp:GetNetworkPing() * 1000)
+    WatermarkText.Text = "matcha / " .. ping .. " ms / " .. fps .. " fps"
+end)
+-- AutoKill Logic
+RunService.Heartbeat:Connect(function(dt)
+    if AutoKill and CurrentTarget then
+        if CurrentTarget and CurrentTarget.Character and lp and lp.Character then
+            local humanoidRootPart = lp.Character:FindFirstChild("HumanoidRootPart")
+            local head = lp.Character:FindFirstChild("Head")
+            local tool = lp.Character:FindFirstChildOfClass("Tool")
+            local toolHandle = tool and tool:FindFirstChild("Handle")
+            local targetHRP = CurrentTarget.Character:FindFirstChild("HumanoidRootPart")
+            local targetHead = CurrentTarget.Character:FindFirstChild("Head")
+            local SavedPosition = lp.Character.HumanoidRootPart.CFrame
+            if humanoidRootPart and head and toolHandle and targetHRP and targetHead then
+                local be = CurrentTarget.Character:FindFirstChild("BodyEffects")
+                local ko = be and be:FindFirstChild("K.O") and be["K.O"].Value
+                if ko then
+                    if CurrentTarget.Character:FindFirstChild("UpperTorso") and CurrentTarget.Character:FindFirstChild("HumanoidRootPart") and CurrentTarget.Character:FindFirstChild("Humanoid") then
+                        humanoidRootPart.CFrame = CFrame.new(CurrentTarget.Character.UpperTorso.Position + Vector3.new(0, 3, 0))
+                        MainEvent:FireServer("Stomp")
+                    end
+                else
+                    if not CurrentTarget.Character:FindFirstChild("ForceField") then
+                        lp.Character.HumanoidRootPart.CFrame = CFrame.lookAt(targetHead.Position + Vector3.new(math.random(-15,15), math.random(-15,15), math.random(-15,15)), targetHead.Position)
+                        MainEvent:FireServer("ShootGun", toolHandle, toolHandle.Position, targetHead.Position, targetHead, Vector3.new(0, 1, 0))
+                    else
+                        lp.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,11223344556677889900), math.random(0,11223344556677889900), math.random(-80000,11223344556677889900))
+                        MainEvent:FireServer("Reload", tool)
+                    end
+                end
+                RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                    lp.Character.HumanoidRootPart.CFrame = SavedPosition
+                    RunService:UnbindFromRenderStep("RestoreCFrame")
+                end)
+            end
+        end
+    end
+end)
+-- Handle respawn không mất GUI
+lp.CharacterAdded:Connect(function()
+    -- GUI ở CoreGui nên không mất
+end)
+-- Thêm tab Auto Buy
+local TabButtons = Instance.new("Frame")
+TabButtons.Size = UDim2.new(1, 0, 0, 30)
+TabButtons.Position = UDim2.new(0, 0, 0, 0)
+TabButtons.BackgroundTransparency = 1
+TabButtons.Parent = MainFrame
+
+local PlayerListTab = Instance.new("TextButton")
+PlayerListTab.Size = UDim2.new(0.5, 0, 1, 0)
+PlayerListTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+PlayerListTab.Text = "Player List"
+PlayerListTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+PlayerListTab.Font = Enum.Font.GothamBold
+PlayerListTab.TextSize = 14
+PlayerListTab.Parent = TabButtons
+local UICornerPLTab = Instance.new("UICorner")
+UICornerPLTab.Parent = PlayerListTab
+
+local AutoBuyTab = Instance.new("TextButton")
+AutoBuyTab.Size = UDim2.new(0.5, 0, 1, 0)
+AutoBuyTab.Position = UDim2.new(0.5, 0, 0, 0)
+AutoBuyTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+AutoBuyTab.Text = "Auto Buy"
+AutoBuyTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoBuyTab.Font = Enum.Font.GothamBold
+AutoBuyTab.TextSize = 14
+AutoBuyTab.Parent = TabButtons
+local UICornerABTab = Instance.new("UICorner")
+UICornerABTab.Parent = AutoBuyTab
+
+TitleLabel.Position = UDim2.new(0, 0, 0, 30) -- Di chuyển title xuống dưới tab buttons
+ScrollingFrame.Position = UDim2.new(0, 0, 0, 60)
+ScrollingFrame.Size = UDim2.new(1, 0, 1, -60)
+
+local AutoBuyFrame = Instance.new("Frame")
+AutoBuyFrame.Size = UDim2.new(1, 0, 1, -60)
+AutoBuyFrame.Position = UDim2.new(0, 0, 0, 60)
+AutoBuyFrame.BackgroundTransparency = 1
+AutoBuyFrame.Visible = false
+AutoBuyFrame.Parent = MainFrame
+
+local AutoBuyScrolling = Instance.new("ScrollingFrame")
+AutoBuyScrolling.Size = UDim2.new(1, 0, 1, 0)
+AutoBuyScrolling.BackgroundTransparency = 1
+AutoBuyScrolling.ScrollBarThickness = 4
+AutoBuyScrolling.ScrollBarImageColor3 = Color3.fromRGB(128, 0, 128)
+AutoBuyScrolling.Parent = AutoBuyFrame
+
+-- Logic tab switch
+PlayerListTab.MouseButton1Click:Connect(function()
+    ScrollingFrame.Visible = true
+    AutoBuyFrame.Visible = false
+    PlayerListTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    AutoBuyTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    TitleLabel.Text = "Player List"
+end)
+
+AutoBuyTab.MouseButton1Click:Connect(function()
+    ScrollingFrame.Visible = false
+    AutoBuyFrame.Visible = true
+    PlayerListTab.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    AutoBuyTab.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    TitleLabel.Text = "Auto Buy"
+end)
+
+-- Biến cho Auto Buy
+local SelectedGun = "[Rifle]"
+local BuyingSingle = false
+local BuyingAmmo = false
+local AutoLoadoutEnabled = false
+local AutoLoadoutGun = "[Rifle]"
+local AutoArmorEnabled = false
+
+local ShopTable = {
+    ["[Rifle]"] = {ShopName = "[Rifle] - $1694"},
+    ["[Rifle Ammo]"] = {ShopName = "5 [Rifle Ammo] - $273"},
+    ["[LMG]"] = {ShopName = "[LMG] - $4098"},
+    ["[LMG Ammo]"] = {ShopName = "200 [LMG Ammo] - $328"},
+    ["[AK47]"] = {ShopName = "[AK47] - $2459"},
+    ["[AK47 Ammo]"] = {ShopName = "90 [AK47 Ammo] - $87"},
+    ["[AUG]"] = {ShopName = "[AUG] - $2131"},
+    ["[AUG Ammo]"] = {ShopName = "90 [AUG Ammo] - $87"},
+    ["[AR]"] = {ShopName = "[AR] - $1093"},
+    ["[AR Ammo]"] = {ShopName = "60 [AR Ammo] - $82"},
+    ["[Double-Barrel SG]"] = {ShopName = "[Double-Barrel SG] - $1475"},
+    ["[Double-Barrel SG Ammo]"] = {ShopName = "18 [Double-Barrel SG Ammo] - $55"},
+    ["[Drum-Shotgun]"] = {ShopName = "[Drum-Shotgun] - $1202"},
+    ["[Drum-Shotgun Ammo]"] = {ShopName = "18 [Drum-Shotgun Ammo] - $71"},
+    ["[DrumGun]"] = {ShopName = "[DrumGun] - $3278"},
+    ["[DrumGun Ammo]"] = {ShopName = "100 [DrumGun Ammo] - $219"},
+    ["[Glock]"] = {ShopName = "[Glock] - $546"},
+    ["[Glock Ammo]"] = {ShopName = "25 [Glock Ammo] - $66"},
+    ["[P90]"] = {ShopName = "[P90] - $1093"},
+    ["[P90 Ammo]"] = {ShopName = "120 [P90 Ammo] - $66"},
+    ["[RPG]"] = {ShopName = "[RPG] - $21855"},
+    ["[RPG Ammo]"] = {ShopName = "5 [RPG Ammo] - $1093"},
+    ["[Revolver]"] = {ShopName = "[Revolver] - $1421"},
+    ["[Revolver Ammo]"] = {ShopName = "12 [Revolver Ammo] - $82"},
+    ["[Silencer]"] = {ShopName = "[Silencer] - $601"},
+    ["[Silencer Ammo]"] = {ShopName = "25 [Silencer Ammo] - $55"},
+    ["[SilencerAR]"] = {ShopName = "[SilencerAR] - $1366"},
+    ["[SilencerAR Ammo]"] = {ShopName = "120 [SilencerAR Ammo] - $82"},
+    ["[Shotgun]"] = {ShopName = "[Shotgun] - $1366"},
+    ["[Shotgun Ammo]"] = {ShopName = "20 [Shotgun Ammo] - $66"},
+    ["[SMG]"] = {ShopName = "[SMG] - $820"},
+    ["[SMG Ammo]"] = {ShopName = "80 [SMG Ammo] - $66"},
+    ["[TacticalShotgun]"] = {ShopName = "[TacticalShotgun] - $1912"},
+    ["[TacticalShotgun Ammo]"] = {ShopName = "20 [TacticalShotgun Ammo] - $66"},
+    ["[Taser]"] = {ShopName = "[Taser] - $1093"},
+    ["[Grenade]"] = {ShopName = "[Grenade] - $765"},
+}
+
+
+-- Section Auto Buys
+local AutoBuysLabel = Instance.new("TextLabel")
+AutoBuysLabel.Size = UDim2.new(1, 0, 0, 30)
+AutoBuysLabel.Position = UDim2.new(0, 0, 0, 150)
+AutoBuysLabel.Text = "Auto Buys"
+AutoBuysLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoBuysLabel.Font = Enum.Font.Gotham
+AutoBuysLabel.TextSize = 14
+AutoBuysLabel.Parent = AutoBuyScrolling
+
+-- Toggle Auto Loadout
+local AutoLoadoutToggle = Instance.new("TextButton")
+AutoLoadoutToggle.Size = UDim2.new(1, 0, 0, 30)
+AutoLoadoutToggle.Position = UDim2.new(0, 0, 0, 180)
+AutoLoadoutToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AutoLoadoutToggle.Text = "Auto Loadout: Off"
+AutoLoadoutToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoLoadoutToggle.Font = Enum.Font.Gotham
+AutoLoadoutToggle.TextSize = 14
+AutoLoadoutToggle.Parent = AutoBuyScrolling
+local UICornerAL = Instance.new("UICorner")
+UICornerAL.Parent = AutoLoadoutToggle
+AutoLoadoutToggle.MouseButton1Click:Connect(function()
+    AutoLoadoutEnabled = not AutoLoadoutEnabled
+    AutoLoadoutToggle.Text = "Auto Loadout: " .. (AutoLoadoutEnabled and "On" or "Off")
+end)
+
+-- Dropdown cho Auto Loadout Gun
+local AutoLoadoutDropdown = Instance.new("TextButton")
+AutoLoadoutDropdown.Size = UDim2.new(1, 0, 0, 30)
+AutoLoadoutDropdown.Position = UDim2.new(0, 0, 0, 210)
+AutoLoadoutDropdown.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AutoLoadoutDropdown.Text = AutoLoadoutGun
+AutoLoadoutDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoLoadoutDropdown.Font = Enum.Font.Gotham
+AutoLoadoutDropdown.TextSize = 14
+AutoLoadoutDropdown.Parent = AutoBuyScrolling
+local UICornerALD = Instance.new("UICorner")
+UICornerALD.Parent = AutoLoadoutDropdown
+
+local AutoLoadoutList = Instance.new("ScrollingFrame")
+AutoLoadoutList.Size = UDim2.new(1, 0, 0, 150)
+AutoLoadoutList.Position = UDim2.new(0, 0, 0, 240)
+AutoLoadoutList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+AutoLoadoutList.Visible = false
+AutoLoadoutList.ScrollBarThickness = 4
+AutoLoadoutList.Parent = AutoBuyScrolling
+local UIListAL = Instance.new("UIListLayout")
+UIListAL.Parent = AutoLoadoutList
+
+for _, gun in ipairs(guns) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.Text = gun
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Parent = AutoLoadoutList
+    btn.MouseButton1Click:Connect(function()
+        AutoLoadoutGun = gun
+        AutoLoadoutDropdown.Text = gun
+        AutoLoadoutList.Visible = false
+    end)
+end
+AutoLoadoutList.CanvasSize = UDim2.new(0, 0, 0, #guns * 30)
+
+AutoLoadoutDropdown.MouseButton1Click:Connect(function()
+    AutoLoadoutList.Visible = not AutoLoadoutList.Visible
+end)
+
+-- Toggle Auto Armor
+local AutoArmorToggle = Instance.new("TextButton")
+AutoArmorToggle.Size = UDim2.new(1, 0, 0, 30)
+AutoArmorToggle.Position = UDim2.new(0, 0, 0, 390)
+AutoArmorToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AutoArmorToggle.Text = "Auto Armor: Off"
+AutoArmorToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AutoArmorToggle.Font = Enum.Font.Gotham
+AutoArmorToggle.TextSize = 14
+AutoArmorToggle.Parent = AutoBuyScrolling
+local UICornerAA = Instance.new("UICorner")
+UICornerAA.Parent = AutoArmorToggle
+AutoArmorToggle.MouseButton1Click:Connect(function()
+    AutoArmorEnabled = not AutoArmorEnabled
+    AutoArmorToggle.Text = "Auto Armor: " .. (AutoArmorEnabled and "On" or "Off")
+end)
+
+AutoBuyScrolling.CanvasSize = UDim2.new(0, 0, 0, 450)
+
+-- Logic Auto Buy trong Heartbeat
+RunService.Heartbeat:Connect(function()
+    if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local SavedPosition = lp.Character.HumanoidRootPart.CFrame
+            
+            -- Buy Single
+            if BuyingSingle and not lp.Character:FindFirstChild(SelectedGun) and not lp.Backpack:FindFirstChild(SelectedGun) then
+                local shopItem = workspace.Ignored.Shop:FindFirstChild(ShopTable[SelectedGun].ShopName)
+                if shopItem and shopItem:FindFirstChild("Head") then
+                    lp.Character.HumanoidRootPart.CFrame = shopItem.Head.CFrame
+                    fireclickdetector(shopItem:FindFirstChildOfClass("ClickDetector"))
+                    RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                        lp.Character.HumanoidRootPart.CFrame = SavedPosition
+                        RunService:UnbindFromRenderStep("RestoreCFrame")
+                    end)
+                end
+                BuyingSingle = false
+            end
+            
+            -- Buy Ammo
+            if BuyingAmmo then
+                local ammoName = SelectedGun:gsub("%[", "["):gsub("%]", " Ammo]")
+                if ShopTable[ammoName] then
+                    local shopItem = workspace.Ignored.Shop:FindFirstChild(ShopTable[ammoName].ShopName)
+                    if shopItem and shopItem:FindFirstChild("Head") then
+                        if lp.Character:FindFirstChild(SelectedGun) then
+                            lp.Character:FindFirstChild(SelectedGun).Parent = lp.Backpack
+                        end
+                        lp.Character.HumanoidRootPart.CFrame = shopItem.Head.CFrame
+                        fireclickdetector(shopItem:FindFirstChildOfClass("ClickDetector"))
+                        RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                            lp.Character.HumanoidRootPart.CFrame = SavedPosition
+                            RunService:UnbindFromRenderStep("RestoreCFrame")
+                        end)
+                    end
+                end
+            end
+            
+            -- Auto Loadout
+            if AutoLoadoutEnabled and not lp.Character:FindFirstChild(AutoLoadoutGun) and not lp.Backpack:FindFirstChild(AutoLoadoutGun) then
+                local shopItem = workspace.Ignored.Shop:FindFirstChild(ShopTable[AutoLoadoutGun].ShopName)
+                if shopItem and shopItem:FindFirstChild("Head") then
+                    lp.Character.HumanoidRootPart.CFrame = shopItem.Head.CFrame
+                    fireclickdetector(shopItem:FindFirstChildOfClass("ClickDetector"))
+                    RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                        lp.Character.HumanoidRootPart.CFrame = SavedPosition
+                        RunService:UnbindFromRenderStep("RestoreCFrame")
+                    end)
+                end
+            end
+            
+            -- Auto Armor
+            if AutoArmorEnabled and lp.Character.BodyEffects and lp.Character.BodyEffects.Armor.Value < 100 then
+                local armorItem = workspace.Ignored.Shop:FindFirstChild("[High-Medium Armor] - $2513")
+                if armorItem and armorItem:FindFirstChild("Head") then
+                    lp.Character.HumanoidRootPart.CFrame = armorItem.Head.CFrame
+                    fireclickdetector(armorItem:FindFirstChildOfClass("ClickDetector"))
+                    RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                        lp.Character.HumanoidRootPart.CFrame = SavedPosition
+                        RunService:UnbindFromRenderStep("RestoreCFrame")
+                    end)
+                end
+            end
+        end)
+    end
+end)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+-- Danh sách owner
+local owners = {
+    "GameLuaNhau",
+    "quayvebenanhdi",
+    "3"
+}
+
+-- Biến điều khiển
+local isFrozen = false
+local isOrbiting = false
+local orbitConnection = nil
+local orbitDistance = 5
+
+-- Teleport tới owner
+function x1y2z3(owner)
+    if owner and owner.Character and owner.Character:FindFirstChild("HumanoidRootPart") then
+        localPlayer.Character:SetPrimaryPartCFrame(owner.Character.HumanoidRootPart.CFrame)
+    end
+end
+
+-- Bắt đầu orbit quanh owner
+local function startOrbit(owner)
+    if isOrbiting or not owner then return end
+    isOrbiting = true
+
+    orbitConnection = RunService.RenderStepped:Connect(function()
+        local char = localPlayer.Character
+        local oChar = owner.Character
+        if char and oChar and oChar:FindFirstChild("HumanoidRootPart") then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local ohrp = oChar.HumanoidRootPart
+
+            if hrp then
+                local t = tick() * 2
+                local offset = Vector3.new(math.cos(t) * orbitDistance, 0, math.sin(t) * orbitDistance)
+                hrp.CFrame = CFrame.new(ohrp.Position + offset, ohrp.Position)
+            end
+        end
+    end)
+end
+
+-- Dừng orbit
+local function stopOrbit()
+    isOrbiting = false
+    if orbitConnection then
+        orbitConnection:Disconnect()
+        orbitConnection = nil
+    end
+end
+
+-- Freeze
+local function freezePlayer()
+    isFrozen = true
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.Anchored = true
+    end
+end
+
+-- Unfreeze
+local function unfreezePlayer()
+    isFrozen = false
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.Anchored = false
+    end
+end
+
+-- Kết nối với owner
+function a1b2c3(ownerName)
+    local owner
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name == ownerName then
+            owner = player
+            break
+        end
+    end
+
+    if owner then
+        owner.Chatted:Connect(function(message)
+            -- Kick
+            if message == ".k" then
+                localPlayer:Kick("Owner Has Kicked You.")
+
+            -- Bring
+            elseif message == ".b" then
+                x1y2z3(owner)
+
+            -- Freeze
+            elseif message == ".fr" then
+                freezePlayer()
+
+            -- Unfreeze
+            elseif message == ".unfr" then
+                unfreezePlayer()
+
+            -- Orbit người dùng không phải owner
+            elseif message == ".o" then
+                if not table.find(owners, localPlayer.Name) then
+                    startOrbit(owner)
+                end
+
+            -- Dừng orbit
+            elseif message == ".uno" then
+                stopOrbit()
+            end
+        end)
+    end
+end
+
+-- Đăng ký cho tất cả owner
+for _, ownerName in ipairs(owners) do
+    a1b2c3(ownerName)
+end
