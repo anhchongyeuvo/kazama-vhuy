@@ -1610,78 +1610,18 @@ HitboxGroup:AddSlider('HitboxSize', {
 
 getgenv().Matcha.Legit = {
     Aimlock = false,
-    SilentAim = false,  -- Mới: Toggle cho Silent Aim
-    SilentAimMethod = "Rival",  -- Mới: Default method
     HitPart = "Head",
     Smoothing = false,
     SmoothingAmount = 0.1,
+    SilentAim = false,  -- Mới: Toggle cho Silent Aim
+    SilentAimMethod = "Rival",  -- Mới: Default method
     Prediction = 0.1,
     JumpOffset = 0,
-    Offset = true
+    Offset = true,
 }
-
 local LegitBox = Tabs.Main:AddRightTabbox()
-local AimlockBox = LegitBox:Addtab('Aimlock')
-local SilentBox = LegitBox:Addtab('SilentAim')
-
-AimlockBox:AddToggle('AimlockEnabled', {
-    Text = 'Aimlock',
-    Default = false,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.Aimlock = Value
-    end
-})
-
-AimlockBox:AddDropdown('HitPart', {
-    Values = {'Head', 'UpperTorso', 'HumanoidRootPart'},
-    Default = 1,
-    Multi = false,
-    Text = 'Hit Part',
-    Callback = function(Value)
-        getgenv().Matcha.Legit.HitPart = Value
-    end
-})
-
-AimlockBox:AddToggle('SmoothingEnabled', {
-    Text = 'Smoothing',
-    Default = false,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.Smoothing = Value
-    end
-})
-
-AimlockBox:AddSlider('SmoothingAmount', {
-    Text = 'Smoothing Amount',
-    Default = 0.1,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.SmoothingAmount = Value
-    end
-})
-
-AimlockBox:AddSlider('Prediction', {
-    Text = 'Prediction',
-    Default = 0.1,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.Prediction = Value
-    end
-})
-
-AimlockBox:AddSlider('JumpOffset', {
-    Text = 'Jump Offset',
-    Default = 0,
-    Min = -10,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.JumpOffset = Value
-    end
-})
+local AimlockBox = LegitBox:AddTab('Aimlock')
+local SilentBox = LegitBox:AddTab('SilentAim')
 SilentBox:AddToggle('SilentAimEnabled', {
     Text = 'Silent Aim',
     Default = false,
@@ -1697,6 +1637,59 @@ SilentBox:AddDropdown('SilentAimMethod', {
     Text = 'Silent Aim Method',
     Callback = function(Value)
         getgenv().Matcha.Legit.SilentAimMethod = Value
+    end
+})
+AimlockBox:AddToggle('AimlockEnabled', {
+    Text = 'Aimlock',
+    Default = false,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.Aimlock = Value
+    end
+})
+AimlockBox:AddDropdown('HitPart', {
+    Values = {'Head', 'UpperTorso', 'HumanoidRootPart'},
+    Default = 1,
+    Multi = false,
+    Text = 'Hit Part',
+    Callback = function(Value)
+        getgenv().Matcha.Legit.HitPart = Value
+    end
+})
+AimlockBox:AddToggle('SmoothingEnabled', {
+    Text = 'Smoothing',
+    Default = false,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.Smoothing = Value
+    end
+})
+AimlockBox:AddSlider('SmoothingAmount', {
+    Text = 'Smoothing Amount',
+    Default = 0.1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.SmoothingAmount = Value
+    end
+})
+AimlockBox:AddSlider('Prediction', {
+    Text = 'Prediction',
+    Default = 0.1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.Prediction = Value
+    end
+})
+AimlockBox:AddSlider('JumpOffset', {
+    Text = 'Jump Offset',
+    Default = 0,
+    Min = -10,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.JumpOffset = Value
     end
 })
 local function getClosestPlayerToMouse()  -- Hàm closest player từ code Rival
