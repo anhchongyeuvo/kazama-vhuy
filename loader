@@ -259,7 +259,13 @@ local Tabs = {
     Misc = Window:AddTab('Misc'),
     ['UI Settings'] = Window:AddTab('UI Settings'),
 }
-
+local previousTargetHealth = {}
+local TargetAimActive = false
+local BuyingActive = false
+local AutoArmorActive = false
+local AutoLoadoutActive = false
+local BuyingSingleActive = false
+local BuyingAmmoActive = false
 getgenv().Matcha = {}
 local matchacc = {
     TargetAim = {
@@ -1692,6 +1698,11 @@ AimlockBox:AddSlider('JumpOffset', {
         getgenv().Matcha.Legit.JumpOffset = Value
     end
 })
+local camera = workspace.CurrentCamera
+if game.GameId ~= 17625359962 then
+local function isLobbyVisible()
+    return localPlayer.PlayerGui.MainGui.MainFrame.Lobby.Currency.Visible == true
+end
 local function getClosestPlayerToMouse()  -- Hàm closest player từ code Rival
     local closestPlayer = nil
     local shortestDistance = math.huge
@@ -1716,7 +1727,35 @@ local function getClosestPlayerToMouse()  -- Hàm closest player từ code Rival
 
     return closestPlayer
 end
-
+local isLeftMouseDown = false
+local autoClickConnection = nil
+local function autoClick()
+    if autoClickConnection then
+        autoClickConnection:Disconnect()
+    end
+    autoClickConnection = RunService.Heartbeat:Connect(function()
+        if isLeftMouseDown then
+            if not isLobbyVisible() then
+                mouse1click()
+            end
+        else
+            autoClickConnection:Disconnect()
+        end
+    end)
+end
+UserInputService.InputBegan:Connect(function(input, isProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and not isProcessed then
+        if not isLeftMouseDown then
+            isLeftMouseDown = true
+            autoClick()
+        end
+    end
+end)
+UserInputService.InputEnded:Connect(function(input, isProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 and not isProcessed then
+        isLeftMouseDown = false
+    end
+end)
 local function lockCameraToHead(targetPlayer)
     if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
         local head = targetPlayer.Character.Head
@@ -1730,13 +1769,14 @@ end
 
 -- RunService cho Rival (chạy khi method là Rival)
 RunService.Heartbeat:Connect(function()
-    if getgenv().Matcha.Legit.SilentAim and getgenv().Matcha.Legit.SilentAimMethod == "Rival" then
+    if getgenv().Matcha.Legit.SilentAim and getgenv().Matcha.Legit.SilentAimMethod == "Rival" and not isLobbyVisible() then
         local targetPlayer = getClosestPlayerToMouse()  -- Closest player
         if targetPlayer then
             lockCameraToHead(targetPlayer)
         end
     end
 end)
+end
 local function updateCamlock()
     local targetName = matchacc.TargetAim.Target
     if not getgenv().Matcha.Legit.Aimlock then return end
@@ -2112,6 +2152,14 @@ spawn(LPH_JIT_ULTRA(function()
                     drawingInstances.Name.Visible = false
                     drawingInstances.HealthText.Visible = false
                 end
+            else
+				drawingInstances.Box.Visible = false
+				drawingInstances.BoxOutline.Visible = false
+				drawingInstances.Health.Visible = false
+				drawingInstances.HealthOutline.Visible = false
+				drawingInstances.Cham.Parent = nil
+				drawingInstances.Name.Visible = false
+				drawingInstances.HealthText.Visible = false
             end
         end
     end
@@ -4529,91 +4577,7 @@ if getnamecallmethod and game.GameId == 9825515356 then
         return OldNamecall(self, ...)
     end)
 end
-RunService.Heartbeat:Connect(function(dt)
-    if matchacc.AutoKill.Enabled then
-        if matchacc.AutoKill.Target ~= nil then
-            local Target = players:FindFirstChild(matchacc.AutoKill.Target)
-            
-            if Target and Target.Character and localPlayer and localPlayer.Character then
-                local humanoidRootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local head = localPlayer.Character:FindFirstChild("Head")
-                local tool = localPlayer.Character:FindFirstChildOfClass("Tool")
-                local toolHandle = tool and tool:FindFirstChild("Handle")
-                local targetHRP = Target.Character:FindFirstChild("HumanoidRootPart")
-                local targetHead = Target.Character:FindFirstChild("Head")
 
-                local SavedPosition = localPlayer.Character.HumanoidRootPart.CFrame
-
-                if humanoidRootPart and head and toolHandle and targetHRP and targetHead then
-                    if not KnockCheck(Target) then
-                        if not Target.Character:FindFirstChild("ForceField") then
-                            localPlayer.Character.HumanoidRootPart.CFrame = CFrame.lookAt(Target.Character.Head.Position + Vector3.new(math.random(-15,15), math.random(-15,15), math.random(-15,15)), Target.Character.Head.Position)
-                            Library:Notify("Matcha.cc - Shooting Target.", 1)
-                            MainEvent:FireServer("ShootGun", toolHandle, toolHandle.Position, Target.Character.Head.Position, targetHead, Vector3.new(0, 1, 0))
-                        else
-                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
-                            Library:Notify("Matcha.cc - Waiting.. Target has spawn protection.", 1)
-                            MainEvent:FireServer("Reload", tool)
-                        end
-                        if matchacc.AutoKill.AutoKillDesync then
-                            RunService:BindToRenderStep("RestoreCFrame", 199, function()
-                                localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
-                                RunService:UnbindFromRenderStep("RestoreCFrame")
-                            end)
-                        end
-                    else
-                        -- Handle dead targets
-                        local bodyEffects = Target.Character:FindFirstChild("BodyEffects")
-                        local isDead = bodyEffects and bodyEffects:FindFirstChild("SDeath") and bodyEffects.SDeath.Value
-                        if isDead == false then
-                            if Target.Character:FindFirstChild("UpperTorso") and Target.Character:FindFirstChild("HumanoidRootPart") and Target.Character:FindFirstChild("Humanoid") then
-                                humanoidRootPart.CFrame = CFrame.new(Target.Character.UpperTorso.Position + Vector3.new(0, 3, 0))
-                                Library:Notify("Matcha.cc - Stomping Target.", 1)
-                                MainEvent:FireServer("Stomp")
-                            end
-                        elseif isDead == true then
-                            -- Move to safe position when target is dead
-                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
-                            Library:Notify("Matcha.cc - Waiting.. Target is currently dead.", 1)
-                            MainEvent:FireServer("Reload", tool)
-                        end
-
-                        if matchacc.AutoKill.AutoKillDesync then
-                            RunService:BindToRenderStep("RestoreCFrame", 199, function()
-                                localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
-                                RunService:UnbindFromRenderStep("RestoreCFrame")
-                            end)
-                        end
-
-                    end
-                else
-                    localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
-                    Library:Notify("Matcha.cc - Waiting.. Equip your gun while using 'Auto Kill Target'.", 1)
-
-                    if matchacc.AutoKill.AutoKillDesync then
-                        RunService:BindToRenderStep("RestoreCFrame", 199, function()
-                            localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
-                            RunService:UnbindFromRenderStep("RestoreCFrame")
-                        end)
-                    end
-                end
-            end
-        else
-            -- If no target is found
-            local humanoidRootPart = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if humanoidRootPart then
-                humanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
-            end
-            Library:Notify("Matcha.cc - Target not found(Hide void).", 3)
-            if matchacc.AutoKill.AutoKillDesync then
-                RunService:BindToRenderStep("RestoreCFrame", 199, function()
-                    localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
-                    RunService:UnbindFromRenderStep("RestoreCFrame")
-                end)
-            end
-        end
-    end
-end)
 -- Mouse1 Down Detect
 UserInputService.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -4626,7 +4590,52 @@ UserInputService.InputEnded:Connect(function(input)
         M1Down = false
     end
 end)
+local SelectedGun = '[Rifle]'
+local BuyingSingle = false
+local BuyingAmmo = false
+local ShopTable = {
+    ["[Rifle]"] = {ShopName = "[Rifle] - $1694"},
+    ["[Rifle Ammo]"] = {ShopName = "5 [Rifle Ammo] - $273"},
+    ["[LMG]"] = {ShopName = "[LMG] - $4098"},
+    ["[LMG Ammo]"] = {ShopName = "200 [LMG Ammo] - $328"},
+    ["[AK47]"] = {ShopName = "[AK47] - $2459"},
+    ["[AK47 Ammo]"] = {ShopName = "90 [AK47 Ammo] - $87"},
+    ["[AUG]"] = {ShopName = "[AUG] - $2131"},
+    ["[AUG Ammo]"] = {ShopName = "90 [AUG Ammo] - $87"},
+    ["[AR]"] = {ShopName = "[AR] - $1093"},
+    ["[AR Ammo]"] = {ShopName = "60 [AR Ammo] - $82"},
+    ["[Double-Barrel SG]"] = {ShopName = "[Double-Barrel SG] - $1475"},
+    ["[Double-Barrel SG Ammo]"] = {ShopName = "18 [Double-Barrel SG Ammo] - $55"},
+    ["[Drum-Shotgun]"] = {ShopName = "[Drum-Shotgun] - $1202"},
+    ["[Drum-Shotgun Ammo]"] = {ShopName = "18 [Drum-Shotgun Ammo] - $71"},
+    ["[DrumGun]"] = {ShopName = "[DrumGun] - $3278"},
+    ["[DrumGun Ammo]"] = {ShopName = "100 [DrumGun Ammo] - $219"},
+    ["[Fire Armor]"] = {ShopName = "[Fire Armor] - $2623"},
+    ["[Glock]"] = {ShopName = "[Glock] - $546"},
+    ["[Glock Ammo]"] = {ShopName = "25 [Glock Ammo] - $66"},
+    ["[P90]"] = {ShopName = "[P90] - $1093"},
+    ["[P90 Ammo]"] = {ShopName = "120 [P90 Ammo] - $66"},
+    ["[RPG]"] = {ShopName = "[RPG] - $21855"},
+    ["[RPG Ammo]"] = {ShopName = "5 [RPG Ammo] - $1093"},
+    ["[Revolver]"] = {ShopName = "[Revolver] - $1421"},
+    ["[Revolver Ammo]"] = {ShopName = "12 [Revolver Ammo] - $82"},
+    ["[Silencer]"] = {ShopName = "[Silencer] - $601"},
+    ["[Silencer Ammo]"] = {ShopName = "25 [Silencer Ammo] - $55"},
+    ["[SilencerAR]"] = {ShopName = "[SilencerAR] - $1366"},
+    ["[SilencerAR Ammo]"] = {ShopName = "120 [SilencerAR Ammo] - $82"},
+    ["[Shotgun]"] = {ShopName = "[Shotgun] - $1366"},
+    ["[Shotgun Ammo]"] = {ShopName = "20 [Shotgun Ammo] - $66"},
+    ["[SMG]"] = {ShopName = "[SMG] - $820"},
+    ["[SMG Ammo]"] = {ShopName = "80 [SMG Ammo] - $66"},
+    ["[TacticalShotgun]"] = {ShopName = "[TacticalShotgun] - $1912"},
+    ["[TacticalShotgun Ammo]"] = {ShopName = "20 [TacticalShotgun Ammo] - $66"},
+    ["[Taser]"] = {ShopName = "[Taser] - $1093"},
+    ["[Grenade]"] = {ShopName = "[Grenade] - $765"},
+}
 
+local headshots = {}
+headshots.AutoArmor = {Enabled = false}
+headshots.AutoLoadout = {Enabled = false, Gun = '[Rifle]'}
 local pingvalue = nil
 local split = nil
 local ping = nil
@@ -4868,11 +4877,75 @@ RunService.Heartbeat:Connect(function(dt)
     end
 end)
 RunService.Heartbeat:Connect(function(dt)
+    TargetAimActive = false
+    BuyingActive = false
+    AutoArmorActive = false
+    AutoLoadoutActive = false
+    BuyingSingleActive = false
+    BuyingAmmoActive = false
+
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local Tool = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool")
+    local SavedPosition = hrp and hrp.CFrame
+
+
+    -- Desync logic (chỉ bật desync khi không mua đồ / không strafe)
+    local useDesync = matchacc.TargetAim.Strafe or matchacc.TargetAim.AutoStomp or matchacc.KillAura.StompAura
+    abletodesync = not (TargetAimActive or AutoArmorActive or AutoLoadoutActive or BuyingAmmoActive or BuyingSingleActive)
+
+    -- === AUTO KILL LOGIC (PAUSE KHI MUA ĐỒ) ===
+    if matchacc.AutoKill.Enabled and matchacc.AutoKill.Target and not (AutoArmorActive or AutoLoadoutActive or BuyingSingleActive or BuyingAmmoActive) then
+        local Target = players:FindFirstChild(matchacc.AutoKill.Target)
+        if Target and Target.Character and localPlayer.Character then
+            local humanoidRootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local head = localPlayer.Character:FindFirstChild("Head")
+            local tool = localPlayer.Character:FindFirstChildOfClass("Tool")
+            local toolHandle = tool and tool:FindFirstChild("Handle")
+            local targetHRP = Target.Character:FindFirstChild("HumanoidRootPart")
+            local targetHead = Target.Character:FindFirstChild("Head")
+
+            if humanoidRootPart and head and toolHandle and targetHRP and targetHead then
+
+                -- Hit sound + notify cho AutoKill (dùng chung table với TargetAim)
+                if Target.Character:FindFirstChild("Humanoid") then
+                    local hum = Target.Character.Humanoid
+                    local curr = math.round(hum.Health)
+                    local prev = previousTargetHealth[Target.Name]
+                    if prev ~= nil and curr < prev then
+                        if matchacc.HitEffects.HitNotifications then
+                            Library:Notify("Matcha.cc - AutoKill Hit: " .. Target.Name .. " - Health: " .. curr, matchacc.HitEffects.HitNotificationsTime)
+                        end
+                        if matchacc.HitEffects.HitSounds then
+                            createHitSound()
+                        end
+                    end
+                    previousTargetHealth[Target.Name] = curr
+                end
+            end
+        end
+    end
+
+    -- Target Aim Hit Sound + Notify (fix hoàn toàn cho cả AutoSelect)
+    if matchacc.TargetAim.Enabled and matchacc.TargetAim.Target ~= "None" then
+        local TargetPlayer = players:FindFirstChild(matchacc.TargetAim.Target)
+        if TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("Humanoid") then
+            local hum = TargetPlayer.Character.Humanoid
+            local curr = math.round(hum.Health)
+            local prev = previousTargetHealth[TargetPlayer.Name]
+
+            if prev ~= nil and curr < prev then
+                if matchacc.HitEffects.HitNotifications then
+                    Library:Notify("Matcha.cc - Target Hit: " .. TargetPlayer.Name .. " - Health: " .. curr, matchacc.HitEffects.HitNotificationsTime)
+                end
+                if matchacc.HitEffects.HitSounds then
+                    createHitSound()
+                end
+            end
+            previousTargetHealth[TargetPlayer.Name] = curr
+        end
+    end
+
     local TargetPlayer = players:FindFirstChild(matchacc.TargetAim.Target)
-    local useDesync = matchacc.TargetAim.Strafe or matchacc.TargetAim.AutoStomp or matchacc.KillAura.StompAura 
-    local hrp = localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local Tool = localPlayer.Character:FindFirstChildOfClass("Tool")
-    local SavedPosition = hrp.CFrame
     if matchacc.KillAura.Enabled then
         if Tool and Tool:FindFirstChild("Handle") then
             if localPlayer.Character.BodyEffects:FindFirstChild("K.O") and not localPlayer.Character.BodyEffects["K.O"].Value then
@@ -5078,6 +5151,272 @@ RunService.Heartbeat:Connect(function(dt)
                         RunService:UnbindFromRenderStep("RestoreStompAura")
                     end)
                 end
+            end
+        end
+    end
+end)
+game:GetService('RunService').Heartbeat:Connect(function(dt)
+
+    -- Target Aim Logic (giữ nguyên từ script gốc của bạn)
+    if matchacc.TargetAim.Enabled and matchacc.TargetAim.Strafe and matchacc.TargetAim.Target ~= "None" and localPlayer and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character:FindFirstChild("Humanoid") and localPlayer.Character:FindFirstChild("Head") then
+        local TargetPlayer = players:FindFirstChild(matchacc.TargetAim.Target)
+        local Tool = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool")
+        if TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("Head") and Tool then
+            if not TargetPlayer.Character:FindFirstChild("ForceField") or Tool.Name == "[Rifle]" then
+                local bodyEffects = TargetPlayer.Character:FindFirstChild("BodyEffects")
+                local isDead = bodyEffects and bodyEffects:FindFirstChild("Dead") and bodyEffects.Dead.Value
+                if ((not KnockCheck(TargetPlayer)) or (matchacc.TargetAim.AutoStomp and isDead == false)) and localPlayer.Character and localPlayer.Character:FindFirstChild("BodyEffects") and localPlayer.Character.BodyEffects:FindFirstChild("Reload") and localPlayer.Character.BodyEffects.Reload.Value == false then
+                    if matchacc.TargetAim.VoidResolver then
+                        if (TargetPlayer.Character.HumanoidRootPart.Position - Vector3.new(0, 0, 0)).Magnitude > 5000 then
+                            return
+                        end
+                    end
+                    TargetAimActive = true
+                end
+            end
+        end
+    end
+    -- Buy Single Logic
+    if BuyingSingle and not game.Players.LocalPlayer.Character:FindFirstChild(SelectedGun) and not game.Players.LocalPlayer.Backpack:FindFirstChild(SelectedGun) then
+        BuyingSingleActive = true
+    end
+    -- Buying Ammo Logic
+    if BuyingAmmo then
+        BuyingAmmoActive = true
+    end
+    -- Auto Loadout Logic (sửa: mua súng nếu chưa có, mua ammo nếu hết đạn - mua 3 lần)
+    if headshots.AutoLoadout.Enabled and headshots.AutoLoadout.Gun and ShopTable[headshots.AutoLoadout.Gun] then
+        local char = game.Players.LocalPlayer.Character
+        local backpack = game.Players.LocalPlayer.Backpack
+        local gunInChar = char:FindFirstChild(headshots.AutoLoadout.Gun)
+        local gunInBackpack = backpack:FindFirstChild(headshots.AutoLoadout.Gun)
+       
+        -- Mua súng nếu chưa có
+        if not gunInChar and not gunInBackpack then
+            AutoLoadoutActive = true
+        else
+            -- Kiểm tra ammo (súng giờ ở backpack)
+            local equippedGun = backpack:FindFirstChild(headshots.AutoLoadout.Gun)
+            if equippedGun and equippedGun:FindFirstChild("Ammo") and equippedGun.Ammo.Value == 0 then
+                -- Mua ammo 3 lần khi hết đạn
+                local AmmoName = "[" .. headshots.AutoLoadout.Gun:sub(2, -2) .. " Ammo]"
+                if ShopTable[AmmoName] then
+                    for i = 1, 3 do
+                        local shop = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[AmmoName].ShopName)
+                        if shop and shop:FindFirstChild("Head") then
+                            local hrp = char.HumanoidRootPart
+                            local saved = hrp.CFrame
+                            hrp.CFrame = shop.Head.CFrame
+			                local currentTool = char:FindFirstChildOfClass("Tool")
+			                if currentTool then
+			                    currentTool.Parent = plr.Backpack
+			                end
+                            for j = 1, 5 do
+                                fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
+                            end
+                            game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
+                                hrp.CFrame = saved
+                                game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    -- Auto Armor Logic
+    if headshots.AutoArmor.Enabled and game.Players.LocalPlayer.Character.BodyEffects.Armor.Value < 100 then
+        AutoArmorActive = true
+    end
+    -- Checking for desync
+    if TargetAimActive or matchacc.AutoKill.Enabled or AutoArmorActive or AutoLoadoutActive or BuyingAmmoActive or BuyingSingleActive then
+        abletodesync = false
+    else
+        abletodesync = true
+    end
+    -- Xử lý mua hàng trong loop (tương tự headshotcc)
+    local plr = game.Players.LocalPlayer
+    local char = plr.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if char and hrp then
+        pcall(function()
+            -- Buy Single (thả bất kỳ tool đang cầm trước khi mua)
+            if BuyingSingle and not char:FindFirstChild(SelectedGun) and not plr.Backpack:FindFirstChild(SelectedGun) then
+                local shop = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[SelectedGun].ShopName)
+                if shop and shop:FindFirstChild("Head") then
+                    local saved = hrp.CFrame
+                    hrp.CFrame = shop.Head.CFrame
+	                local currentTool = char:FindFirstChildOfClass("Tool")
+	                if currentTool then
+	                    currentTool.Parent = plr.Backpack
+	                end
+                    for i = 1, 10 do
+                        fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
+                    end
+                    game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
+                        hrp.CFrame = saved
+                        game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
+                    end)
+                end
+            else
+                BuyingSingle = false
+            end
+            -- Buy Ammo (single pack) - đã có thả tool
+            if BuyingAmmo then
+                local AmmoName = "[" .. SelectedGun:sub(2, -2) .. " Ammo]"
+                local ammoData = ShopTable[AmmoName]
+                if ammoData then
+                    local shop = game.Workspace.Ignored.Shop:FindFirstChild(ammoData.ShopName)
+                    if shop and shop:FindFirstChild("Head") then
+                        if char:FindFirstChild(SelectedGun) or plr.Backpack:FindFirstChild(SelectedGun) then
+                            local gunObj = char:FindFirstChild(SelectedGun)
+                            if gunObj then
+                                gunObj.Parent = plr.Backpack
+                            end
+                            local saved = hrp.CFrame
+                            hrp.CFrame = shop.Head.CFrame
+			                local currentTool = char:FindFirstChildOfClass("Tool")
+			                if currentTool then
+			                    currentTool.Parent = plr.Backpack
+			                end
+                            for i = 1, 5 do
+                                fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
+                            end
+                            game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
+                                hrp.CFrame = saved
+                                game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
+                            end)
+                        end
+                    end
+                end
+                BuyingAmmo = false
+            end
+            -- Auto Loadout (mua súng nếu chưa có - ammo đã xử lý ở trên)
+            if headshots.AutoLoadout.Enabled and headshots.AutoLoadout.Gun and ShopTable[headshots.AutoLoadout.Gun] and not char:FindFirstChild(headshots.AutoLoadout.Gun) and not plr.Backpack:FindFirstChild(headshots.AutoLoadout.Gun) then
+                -- Thả tool đang cầm nếu có
+                local ShopItem = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[headshots.AutoLoadout.Gun].ShopName)
+                if ShopItem and ShopItem:FindFirstChild("Head") then
+                    local saved = hrp.CFrame
+                    hrp.CFrame = ShopItem.Head.CFrame
+	                local currentTool = char:FindFirstChildOfClass("Tool")
+	                if currentTool then
+	                    currentTool.Parent = plr.Backpack
+	                    task.wait(0.1)
+	                end
+                    for i = 1, 5 do
+                        fireclickdetector(ShopItem:FindFirstChildOfClass("ClickDetector"))
+                    end
+                    game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
+                        hrp.CFrame = saved
+                        game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
+                    end)
+                end
+            end
+            -- Auto Armor
+            if headshots.AutoArmor.Enabled and char.BodyEffects and char.BodyEffects.Armor and char.BodyEffects.Armor.Value < 100 then
+                local shop = game.Workspace.Ignored.Shop:FindFirstChild('[High-Medium Armor] - $2513')
+                if shop and shop:FindFirstChild("Head") then
+                    local oldArmor = char.BodyEffects.Armor.Value
+                    local saved = hrp.CFrame
+                    hrp.CFrame = shop.Head.CFrame
+	                local currentTool = char:FindFirstChildOfClass("Tool")
+	                if currentTool then
+	                    currentTool.Parent = plr.Backpack
+	                end
+                    for i = 1, 5 do
+                        fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
+                    end
+                    game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
+                        hrp.CFrame = saved
+                        game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
+                    end)
+                    if char.BodyEffects.Armor.Value > oldArmor then
+                    end
+                end
+            end
+        end)
+    end
+end)
+RunService.Heartbeat:Connect(function(dt)
+        if matchacc.AutoKill.Enabled and matchacc.AutoKill.Target and not (AutoArmorActive or AutoLoadoutActive or BuyingSingleActive or BuyingAmmoActive) then
+        if matchacc.AutoKill.Target ~= nil then
+            local Target = players:FindFirstChild(matchacc.AutoKill.Target)
+            if Target and Target.Character and localPlayer and localPlayer.Character then
+                local humanoidRootPart = localPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local head = localPlayer.Character:FindFirstChild("Head")
+                local tool = localPlayer.Character:FindFirstChildOfClass("Tool")
+                local toolHandle = tool and tool:FindFirstChild("Handle")
+                local targetHRP = Target.Character:FindFirstChild("HumanoidRootPart")
+                local targetHead = Target.Character:FindFirstChild("Head")
+
+                local SavedPosition = localPlayer.Character.HumanoidRootPart.CFrame
+
+                if humanoidRootPart and head and toolHandle and targetHRP and targetHead then
+                    if not KnockCheck(Target) then
+                        if not Target.Character:FindFirstChild("ForceField") then
+                            localPlayer.Character.HumanoidRootPart.CFrame = CFrame.lookAt(Target.Character.Head.Position + Vector3.new(math.random(-15,15), math.random(-15,15), math.random(-15,15)), Target.Character.Head.Position)
+                            Library:Notify("Matcha.cc - Shooting Target.", 1)
+                            MainEvent:FireServer("ShootGun", toolHandle, toolHandle.Position, Target.Character.Head.Position, targetHead, Vector3.new(0, 1, 0))
+                        else
+                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                            Library:Notify("Matcha.cc - Waiting.. Target has spawn protection.", 1)
+                            MainEvent:FireServer("Reload", tool)
+                        end
+                        if matchacc.AutoKill.AutoKillDesync then
+                            RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                                localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
+                                RunService:UnbindFromRenderStep("RestoreCFrame")
+                            end)
+                        end
+                    else
+                        -- Handle dead targets
+                        local bodyEffects = Target.Character:FindFirstChild("BodyEffects")
+                        local isDead = bodyEffects and bodyEffects:FindFirstChild("SDeath") and bodyEffects.SDeath.Value
+                        if isDead == false then
+                            if Target.Character:FindFirstChild("UpperTorso") and Target.Character:FindFirstChild("HumanoidRootPart") and Target.Character:FindFirstChild("Humanoid") then
+                                humanoidRootPart.CFrame = CFrame.new(Target.Character.UpperTorso.Position + Vector3.new(0, 3, 0))
+                                Library:Notify("Matcha.cc - Stomping Target.", 1)
+                                MainEvent:FireServer("Stomp")
+                            end
+                        elseif isDead == true then
+                            -- Move to safe position when target is dead
+                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                            Library:Notify("Matcha.cc - Waiting.. Target is currently dead.", 1)
+                            MainEvent:FireServer("Reload", tool)
+                        end
+
+                        if matchacc.AutoKill.AutoKillDesync then
+                            RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                                localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
+                                RunService:UnbindFromRenderStep("RestoreCFrame")
+                            end)
+                        end
+
+                    end
+                else
+                    localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                    Library:Notify("Matcha.cc - Waiting.. Equip your gun while using 'Auto Kill Target'.", 1)
+
+                    if matchacc.AutoKill.AutoKillDesync then
+                        RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                            localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
+                            RunService:UnbindFromRenderStep("RestoreCFrame")
+                        end)
+                    end
+                end
+            end
+        else
+            -- If no target is found
+            local humanoidRootPart = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart then
+                humanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+            end
+            Library:Notify("Matcha.cc - Target not found(Hide void).", 3)
+            if matchacc.AutoKill.AutoKillDesync then
+                RunService:BindToRenderStep("RestoreCFrame", 199, function()
+                    localPlayer.Character.HumanoidRootPart.CFrame = SavedPosition
+                    RunService:UnbindFromRenderStep("RestoreCFrame")
+                end)
             end
         end
     end
@@ -7359,240 +7698,7 @@ ESPGroup:AddToggle('ESPDrawingBoxesCornerEnabled', {
     end
 })]]
 if isDaHood then 
-local SelectedGun = '[Rifle]'
-local BuyingSingle = false
-local BuyingAmmo = false
-local ShopTable = {
-    ["[Rifle]"] = {ShopName = "[Rifle] - $1694"},
-    ["[Rifle Ammo]"] = {ShopName = "5 [Rifle Ammo] - $273"},
-    ["[LMG]"] = {ShopName = "[LMG] - $4098"},
-    ["[LMG Ammo]"] = {ShopName = "200 [LMG Ammo] - $328"},
-    ["[AK47]"] = {ShopName = "[AK47] - $2459"},
-    ["[AK47 Ammo]"] = {ShopName = "90 [AK47 Ammo] - $87"},
-    ["[AUG]"] = {ShopName = "[AUG] - $2131"},
-    ["[AUG Ammo]"] = {ShopName = "90 [AUG Ammo] - $87"},
-    ["[AR]"] = {ShopName = "[AR] - $1093"},
-    ["[AR Ammo]"] = {ShopName = "60 [AR Ammo] - $82"},
-    ["[Double-Barrel SG]"] = {ShopName = "[Double-Barrel SG] - $1475"},
-    ["[Double-Barrel SG Ammo]"] = {ShopName = "18 [Double-Barrel SG Ammo] - $55"},
-    ["[Drum-Shotgun]"] = {ShopName = "[Drum-Shotgun] - $1202"},
-    ["[Drum-Shotgun Ammo]"] = {ShopName = "18 [Drum-Shotgun Ammo] - $71"},
-    ["[DrumGun]"] = {ShopName = "[DrumGun] - $3278"},
-    ["[DrumGun Ammo]"] = {ShopName = "100 [DrumGun Ammo] - $219"},
-    ["[Fire Armor]"] = {ShopName = "[Fire Armor] - $2623"},
-    ["[Glock]"] = {ShopName = "[Glock] - $546"},
-    ["[Glock Ammo]"] = {ShopName = "25 [Glock Ammo] - $66"},
-    ["[P90]"] = {ShopName = "[P90] - $1093"},
-    ["[P90 Ammo]"] = {ShopName = "120 [P90 Ammo] - $66"},
-    ["[RPG]"] = {ShopName = "[RPG] - $21855"},
-    ["[RPG Ammo]"] = {ShopName = "5 [RPG Ammo] - $1093"},
-    ["[Revolver]"] = {ShopName = "[Revolver] - $1421"},
-    ["[Revolver Ammo]"] = {ShopName = "12 [Revolver Ammo] - $82"},
-    ["[Silencer]"] = {ShopName = "[Silencer] - $601"},
-    ["[Silencer Ammo]"] = {ShopName = "25 [Silencer Ammo] - $55"},
-    ["[SilencerAR]"] = {ShopName = "[SilencerAR] - $1366"},
-    ["[SilencerAR Ammo]"] = {ShopName = "120 [SilencerAR Ammo] - $82"},
-    ["[Shotgun]"] = {ShopName = "[Shotgun] - $1366"},
-    ["[Shotgun Ammo]"] = {ShopName = "20 [Shotgun Ammo] - $66"},
-    ["[SMG]"] = {ShopName = "[SMG] - $820"},
-    ["[SMG Ammo]"] = {ShopName = "80 [SMG Ammo] - $66"},
-    ["[TacticalShotgun]"] = {ShopName = "[TacticalShotgun] - $1912"},
-    ["[TacticalShotgun Ammo]"] = {ShopName = "20 [TacticalShotgun Ammo] - $66"},
-    ["[Taser]"] = {ShopName = "[Taser] - $1093"},
-    ["[Grenade]"] = {ShopName = "[Grenade] - $765"},
-}
 
-local headshots = {}
-headshots.AutoArmor = {Enabled = false}
-headshots.AutoLoadout = {Enabled = false, Gun = '[Rifle]'}
-
-game:GetService('RunService').Heartbeat:Connect(function(dt)
-    local TargetAimActive = false
-    local BuyingActive = false
-    local AutoArmorActive = false
-    local AutoLoadoutActive = false
-    local BuyingSingleActive = false
-    local BuyingAmmoActive = false
-    -- Target Aim Logic (giữ nguyên từ script gốc của bạn)
-    if matchacc.TargetAim.Enabled and matchacc.TargetAim.Strafe and matchacc.TargetAim.Target ~= "None" and localPlayer and localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart") and localPlayer.Character:FindFirstChild("Humanoid") and localPlayer.Character:FindFirstChild("Head") then
-        local TargetPlayer = players:FindFirstChild(matchacc.TargetAim.Target)
-        local Tool = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Tool")
-        if TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("Head") and Tool then
-            if not TargetPlayer.Character:FindFirstChild("ForceField") or Tool.Name == "[Rifle]" then
-                local bodyEffects = TargetPlayer.Character:FindFirstChild("BodyEffects")
-                local isDead = bodyEffects and bodyEffects:FindFirstChild("Dead") and bodyEffects.Dead.Value
-                if ((not KnockCheck(TargetPlayer)) or (matchacc.TargetAim.AutoStomp and isDead == false)) and localPlayer.Character and localPlayer.Character:FindFirstChild("BodyEffects") and localPlayer.Character.BodyEffects:FindFirstChild("Reload") and localPlayer.Character.BodyEffects.Reload.Value == false then
-                    if matchacc.TargetAim.VoidResolver then
-                        if (TargetPlayer.Character.HumanoidRootPart.Position - Vector3.new(0, 0, 0)).Magnitude > 5000 then
-                            return
-                        end
-                    end
-                    TargetAimActive = true
-                end
-            end
-        end
-    end
-    -- Buy Single Logic
-    if BuyingSingle and not game.Players.LocalPlayer.Character:FindFirstChild(SelectedGun) and not game.Players.LocalPlayer.Backpack:FindFirstChild(SelectedGun) then
-        BuyingSingleActive = true
-    end
-    -- Buying Ammo Logic
-    if BuyingAmmo then
-        BuyingAmmoActive = true
-    end
-    -- Auto Loadout Logic (sửa: mua súng nếu chưa có, mua ammo nếu hết đạn - mua 3 lần)
-    if headshots.AutoLoadout.Enabled and headshots.AutoLoadout.Gun and ShopTable[headshots.AutoLoadout.Gun] then
-        local char = game.Players.LocalPlayer.Character
-        local backpack = game.Players.LocalPlayer.Backpack
-        local gunInChar = char:FindFirstChild(headshots.AutoLoadout.Gun)
-        local gunInBackpack = backpack:FindFirstChild(headshots.AutoLoadout.Gun)
-       
-        -- Mua súng nếu chưa có
-        if not gunInChar and not gunInBackpack then
-            AutoLoadoutActive = true
-        else
-            -- Kiểm tra ammo (súng giờ ở backpack)
-            local equippedGun = backpack:FindFirstChild(headshots.AutoLoadout.Gun)
-            if equippedGun and equippedGun:FindFirstChild("Ammo") and equippedGun.Ammo.Value == 0 then
-                -- Mua ammo 3 lần khi hết đạn
-                local AmmoName = "[" .. headshots.AutoLoadout.Gun:sub(2, -2) .. " Ammo]"
-                if ShopTable[AmmoName] then
-                    for i = 1, 3 do
-                        local shop = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[AmmoName].ShopName)
-                        if shop and shop:FindFirstChild("Head") then
-                            local hrp = char.HumanoidRootPart
-                            local saved = hrp.CFrame
-                            hrp.CFrame = shop.Head.CFrame
-			                local currentTool = char:FindFirstChildOfClass("Tool")
-			                if currentTool then
-			                    currentTool.Parent = plr.Backpack
-			                end
-                            for j = 1, 5 do
-                                fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
-                            end
-                            game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
-                                hrp.CFrame = saved
-                                game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
-                            end)
-                        end
-                    end
-                end
-            end
-        end
-    end
-    -- Auto Armor Logic
-    if headshots.AutoArmor.Enabled and game.Players.LocalPlayer.Character.BodyEffects.Armor.Value < 100 then
-        AutoArmorActive = true
-    end
-    -- Checking for desync
-    if TargetAimActive or matchacc.AutoKill.Enabled or AutoArmorActive or AutoLoadoutActive or BuyingAmmoActive or BuyingSingleActive then
-        abletodesync = false
-    else
-        abletodesync = true
-    end
-    -- Xử lý mua hàng trong loop (tương tự headshotcc)
-    local plr = game.Players.LocalPlayer
-    local char = plr.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if char and hrp then
-        pcall(function()
-            -- Buy Single (thả bất kỳ tool đang cầm trước khi mua)
-            if BuyingSingle and not char:FindFirstChild(SelectedGun) and not plr.Backpack:FindFirstChild(SelectedGun) then
-                local shop = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[SelectedGun].ShopName)
-                if shop and shop:FindFirstChild("Head") then
-                    local saved = hrp.CFrame
-                    hrp.CFrame = shop.Head.CFrame
-	                local currentTool = char:FindFirstChildOfClass("Tool")
-	                if currentTool then
-	                    currentTool.Parent = plr.Backpack
-	                end
-                    for i = 1, 10 do
-                        fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
-                    end
-                    game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
-                        hrp.CFrame = saved
-                        game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
-                    end)
-                end
-            else
-                BuyingSingle = false
-            end
-            -- Buy Ammo (single pack) - đã có thả tool
-            if BuyingAmmo then
-                local AmmoName = "[" .. SelectedGun:sub(2, -2) .. " Ammo]"
-                local ammoData = ShopTable[AmmoName]
-                if ammoData then
-                    local shop = game.Workspace.Ignored.Shop:FindFirstChild(ammoData.ShopName)
-                    if shop and shop:FindFirstChild("Head") then
-                        if char:FindFirstChild(SelectedGun) or plr.Backpack:FindFirstChild(SelectedGun) then
-                            local gunObj = char:FindFirstChild(SelectedGun)
-                            if gunObj then
-                                gunObj.Parent = plr.Backpack
-                            end
-                            local saved = hrp.CFrame
-                            hrp.CFrame = shop.Head.CFrame
-			                local currentTool = char:FindFirstChildOfClass("Tool")
-			                if currentTool then
-			                    currentTool.Parent = plr.Backpack
-			                end
-                            for i = 1, 5 do
-                                fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
-                            end
-                            game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
-                                hrp.CFrame = saved
-                                game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
-                            end)
-                        end
-                    end
-                end
-                BuyingAmmo = false
-            end
-            -- Auto Loadout (mua súng nếu chưa có - ammo đã xử lý ở trên)
-            if headshots.AutoLoadout.Enabled and headshots.AutoLoadout.Gun and ShopTable[headshots.AutoLoadout.Gun] and not char:FindFirstChild(headshots.AutoLoadout.Gun) and not plr.Backpack:FindFirstChild(headshots.AutoLoadout.Gun) then
-                -- Thả tool đang cầm nếu có
-                local ShopItem = game.Workspace.Ignored.Shop:FindFirstChild(ShopTable[headshots.AutoLoadout.Gun].ShopName)
-                if ShopItem and ShopItem:FindFirstChild("Head") then
-                    local saved = hrp.CFrame
-                    hrp.CFrame = ShopItem.Head.CFrame
-	                local currentTool = char:FindFirstChildOfClass("Tool")
-	                if currentTool then
-	                    currentTool.Parent = plr.Backpack
-	                    task.wait(0.1)
-	                end
-                    for i = 1, 5 do
-                        fireclickdetector(ShopItem:FindFirstChildOfClass("ClickDetector"))
-                    end
-                    game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
-                        hrp.CFrame = saved
-                        game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
-                    end)
-                end
-            end
-            -- Auto Armor
-            if headshots.AutoArmor.Enabled and char.BodyEffects and char.BodyEffects.Armor and char.BodyEffects.Armor.Value < 100 then
-                local shop = game.Workspace.Ignored.Shop:FindFirstChild('[High-Medium Armor] - $2513')
-                if shop and shop:FindFirstChild("Head") then
-                    local oldArmor = char.BodyEffects.Armor.Value
-                    local saved = hrp.CFrame
-                    hrp.CFrame = shop.Head.CFrame
-	                local currentTool = char:FindFirstChildOfClass("Tool")
-	                if currentTool then
-	                    currentTool.Parent = plr.Backpack
-	                end
-                    for i = 1, 5 do
-                        fireclickdetector(shop:FindFirstChildOfClass("ClickDetector"))
-                    end
-                    game:GetService("RunService"):BindToRenderStep("RestoreCFrame", 199, function()
-                        hrp.CFrame = saved
-                        game:GetService("RunService"):UnbindFromRenderStep("RestoreCFrame")
-                    end)
-                    if char.BodyEffects.Armor.Value > oldArmor then
-                    end
-                end
-            end
-        end)
-    end
-end)
 
 -- UI Setup (sửa để phù hợp với lib của bạn, giả sử sử dụng Tabs.Misc:AddLeftGroupbox('AutoBuy'))
 local AutoBuyGroup = Tabs.Misc:AddLeftGroupbox('AutoBuy')
