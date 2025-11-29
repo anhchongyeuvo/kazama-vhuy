@@ -1624,6 +1624,8 @@ getgenv().Matcha.Legit = {
     Prediction = 0.1,
     JumpOffset = 0,
     Offset = true,
+    SilentFOV = 100,
+    SilentFOVEnabled = false,
 }
 local LegitBox = Tabs.Main:AddRightTabbox()
 local AimlockBox = LegitBox:AddTab('Aimlock')
@@ -1637,12 +1639,29 @@ SilentBox:AddToggle('SilentAimEnabled', {
 })
 
 SilentBox:AddDropdown('SilentAimMethod', {
-    Values = {'Rival'},
+    Values = {'Rival', 'Flick'},
     Default = 0,
     Multi = false,
     Text = 'Silent Aim Method',
     Callback = function(Value)
         getgenv().Matcha.Legit.SilentAimMethod = Value
+    end
+})
+SilentBox:AddToggle('SilentAimEnabled', {
+    Text = 'Silent Fov Enabled',
+    Default = false,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.SilentFOVEnabled = Value
+    end
+})
+SilentBox:AddSlider('SilentFOV', {
+    Text = 'Silent Aim FOV',
+    Default = 100,
+    Min = 10,
+    Max = 1000,
+    Rounding = 0,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.SilentFOV = Value
     end
 })
 AimlockBox:AddToggle('AimlockEnabled', {
@@ -1705,14 +1724,16 @@ local function isLobbyVisible()
 end
 local function getClosestPlayerToMouse()  -- Hàm closest player từ code Rival
     local closestPlayer = nil
-    local shortestDistance = math.huge
+    local shortestDistance = getgenv().Matcha.Legit.SilentFOVEnabled and getgenv().Matcha.Legit.SilentFOV or 9999
     local mousePosition = UserInputService:GetMouseLocation()
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
             local head = player.Character.Head
             local headPosition, onScreen = Camera:WorldToViewportPoint(head.Position)
+	        if not isAlive(player) then continue end
 
+	        if not isPlayerVisible(player) then continue end
             if onScreen then
                 local screenPosition = Vector2.new(headPosition.X, headPosition.Y)
                 local distance = (screenPosition - mousePosition).Magnitude
@@ -1777,6 +1798,80 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 end
+spawn(function()
+    local BulletHandler = nil
+    local OldFire = nil
+
+    local function get_closest_target(range)
+        local closest_part, closest_distance = nil, range
+        local mousePos = UserInputService:GetMouseLocation()
+
+        for _, player in pairs(players:GetPlayers()) do
+            if player == localPlayer or not player.Character or not player.Character:FindFirstChild("Head") then continue end
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+	        if not isAlive(player) then continue end
+	        if not isPlayerVisible(player) then continue end
+            local headPos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+            if not onScreen then continue end
+
+            local dist = (Vector2.new(headPos.X, headPos.Y) - mousePos).Magnitude
+            if dist < closest_distance then
+                closest_distance = dist
+                closest_part = player.Character.Head
+            end
+        end
+        return closest_part
+    end
+
+    RunService.Heartbeat:Connect(function()
+        if not getgenv().Matcha.Legit.SilentAim or getgenv().Matcha.Legit.SilentAimMethod ~= "Flick" then
+            if BulletHandler and OldFire then
+                BulletHandler.Fire = OldFire
+                BulletHandler = nil
+                OldFire = nil
+            end
+            return
+        end
+
+        if not BulletHandler then
+            local success, mod = pcall(function()
+                return require(ReplicatedStorage:FindFirstChild("ModuleScripts", true):FindFirstChild("GunModules", true).BulletHandler)
+            end)
+            if not success then
+                -- gc fallback cực mạnh cho Rivals
+                for _, v in pairs(getgc(true)) do
+                    if typeof(v) == "table" and rawget(v, "Fire") and typeof(rawget(v, "Fire")) == "function" then
+                        BulletHandler = v
+                        break
+                    end
+                end
+            else
+                BulletHandler = mod
+            end
+
+            if BulletHandler and BulletHandler.Fire then
+                OldFire = BulletHandler.Fire
+                BulletHandler.Fire = newcclosure(function(data, ...)
+                    if not getgenv().Matcha.Legit.SilentAim then
+                        return OldFire(data, ...)
+                    end
+
+                    local closest = get_closest_target(getgenv().Matcha.Legit.SilentFOVEnabled and getgenv().Matcha.Legit.SilentFOV or 9999)
+
+                    if closest then
+                        local pred = 0
+                        local predictedPos = closest.Position + (closest.Velocity * pred)
+
+                        data.Direction = (predictedPos - data.Origin).Unit
+                        data.Force = data.Force * 1000
+                    end
+
+                    return OldFire(data, ...)
+                end)
+            end
+        end
+    end)
+end)
 local function updateCamlock()
     local targetName = matchacc.TargetAim.Target
     if not getgenv().Matcha.Legit.Aimlock then return end
@@ -2027,7 +2122,7 @@ local LPH_JIT_ULTRA = LPH_JIT_ULTRA or function(...) return ... end
 spawn(LPH_JIT_ULTRA(function()
     while task.wait() do
         for i, v in next, players:GetPlayers() do
-            if v ~= localPlayer then
+            if v ~= localPlayer and isAlive(v) then
                 local drawingInstances = esp.players[v]
                 if not drawingInstances then continue end
                 if esp.enabled then
@@ -2152,7 +2247,7 @@ spawn(LPH_JIT_ULTRA(function()
                     drawingInstances.Name.Visible = false
                     drawingInstances.HealthText.Visible = false
                 end
-            else
+			else
 				drawingInstances.Box.Visible = false
 				drawingInstances.BoxOutline.Visible = false
 				drawingInstances.Health.Visible = false
