@@ -1351,6 +1351,430 @@ KillAuraGroup:AddToggle('StompAura', {
         matchacc.KillAura.StompAura = Value
     end
 })
+local GunModsGroup = Tabs.Main:AddRightGroupbox('Gun Mods')
+matchacc.EquipAllGuns = {
+    Enabled = false,
+}
+
+-- Globals (sau các global vars khác)
+local EquipAllConnection = nil
+local lastEquipTime = 0
+local EquipAllConnection
+local EquipAddedConnection
+
+-- Function equipAllGuns đã sửa
+local function equipAllGuns()
+    local char = localPlayer.Character
+    local backpack = localPlayer.Backpack
+    if not char or not backpack then return end
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+            tool.Parent = char
+        end
+    end
+end
+
+local function setupEquipAll()
+    local char = localPlayer.Character
+    local backpack = localPlayer.Backpack
+    if not char or not backpack or not matchacc.EquipAllGuns.Enabled then return end
+    
+    equipAllGuns()
+    
+    if EquipAllConnection then
+        EquipAllConnection:Disconnect()
+        EquipAllConnection = nil
+    end
+    EquipAllConnection = char.ChildRemoved:Connect(function(child)
+        if matchacc.EquipAllGuns.Enabled and child:IsA("Tool") and child:FindFirstChild("Ammo") and (tick() - lastEquipTime) >= 0.5 then
+            lastEquipTime = tick()
+            task.spawn(function()
+                task.wait(0.1)
+                equipAllGuns()
+            end)
+        end
+    end)
+    
+    if EquipAddedConnection then
+        EquipAddedConnection:Disconnect()
+        EquipAddedConnection = nil
+    end
+    EquipAddedConnection = backpack.ChildAdded:Connect(function(child)
+        if matchacc.EquipAllGuns.Enabled and child:IsA("Tool") and child:FindFirstChild("Ammo") then
+            child.Parent = char
+        end
+    end)
+end
+
+-- Character respawn
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(5)
+    if matchacc.EquipAllGuns.Enabled then
+        setupEquipAll()
+    end
+end)
+
+-- Thêm vào GunModsGroup (sau Wallbang)
+GunModsGroup:AddToggle('EquipAllGunsEnabled', {
+    Text = 'Equip All Guns',
+    Default = false,
+    Callback = function(Value)
+        matchacc.EquipAllGuns.Enabled = Value
+        if Value then
+            setupEquipAll()
+        else
+            if EquipAllConnection then
+                EquipAllConnection:Disconnect()
+                EquipAllConnection = nil
+            end
+        end
+    end
+}):AddKeyPicker('EquipAllGunsKey', {
+    Default = 'none',
+    SyncToggleState = true,
+    Mode = 'Toggle',
+    Text = 'Equip All Guns'
+})
+GunModsGroup:AddToggle('RapidFireEnabled', {
+    Text = 'Rapid Fire',
+    Default = false,
+    Callback = function(Value)
+        matchacc.RapidFire.Enabled = Value
+        if not getnamecallmethod then
+            Library:Notify("Your executor does not support this feature.", 3)
+        end
+    end
+})
+
+GunModsGroup:AddToggle('WallbangEnabled', {
+    Text = 'Wallbang',
+    Default = false,
+    Callback = function(Value)
+        matchacc.Wallbang.Enabled = Value
+        if getnamecallmethod then
+            local Handler = game:FindService("ReplicatedStorage").MainModule
+            local Module = require(Handler)
+            if Value == true and workspace:FindFirstChild("Vehicles") then
+                Module.Ignored = {workspace:WaitForChild("Vehicles"), workspace:WaitForChild("MAP"), workspace:WaitForChild("Ignored")}
+            else
+                if workspace:FindFirstChild("Vehicles") then
+                    Module.Ignored = {workspace:WaitForChild("Vehicles"), workspace:WaitForChild("Ignored")}
+                end
+            end
+        else
+            Library:Notify("Your executor does not support this feature.", 3)
+        end
+    end
+})
+getgenv().RemoveShootAnimationsEnabled = false
+getgenv().ShootAnimationIds = {
+    ["rbxassetid://2807049953"] = true, 
+    ["rbxassetid://2809413000"] = true, 
+    ["rbxassetid://2809419094"] = true,  
+    ["rbxassetid://507768375"] = true,
+    ["rbxassetid://507755388"] = true,
+    ["rbxassetid://2807049953"] = true,
+    ["rbxassetid://2877910736"] = true 
+}
+
+getgenv().StopAnimationTracks = function(character)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            if getgenv().ShootAnimationIds[track.Animation.AnimationId] then
+                track:Stop()
+            end
+        end
+    end
+end
+
+getgenv().MonitorCharacter = function(character)
+    character.DescendantAdded:Connect(function(descendant)
+        if descendant:IsA("AnimationTrack") and getgenv().RemoveShootAnimationsEnabled then
+            if getgenv().ShootAnimationIds[descendant.Animation.AnimationId] then
+                descendant:Stop()
+            end
+        end
+    end)
+end
+
+getgenv().MonitorPlayers = function()
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        local character = player.Character or player.CharacterAdded:Wait()
+        getgenv().StopAnimationTracks(character)
+        getgenv().MonitorCharacter(character)
+
+        player.CharacterAdded:Connect(function(newCharacter)
+            getgenv().StopAnimationTracks(newCharacter)
+            getgenv().MonitorCharacter(newCharacter)
+        end)
+    end
+
+    game:GetService("Players").PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function(character)
+            getgenv().StopAnimationTracks(character)
+            getgenv().MonitorCharacter(character)
+        end)
+    end)
+end
+
+getgenv().MonitorAnimations = function()
+    game:GetService("RunService").RenderStepped:Connect(function()
+        if getgenv().RemoveShootAnimationsEnabled then
+            for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+                local character = player.Character
+                if character then
+                    getgenv().StopAnimationTracks(character)
+                end
+            end
+        end
+    end)
+end
+
+GunModsGroup:AddToggle("AntiflingToggle", {
+    Text = "remove shoot animations",
+    Default = false,
+    Callback = function(enabled)
+        getgenv().RemoveShootAnimationsEnabled = enabled
+        if enabled then
+            getgenv().MonitorPlayers()
+            task.spawn(getgenv().MonitorAnimations)
+        end
+    end
+})
+
+
+
+local HitboxGroup = Tabs.Main:AddRightGroupbox('Hitbox Expander')
+
+HitboxGroup:AddToggle('HitboxEnabled', {
+    Text = 'Enabled',
+    Default = false,
+    Callback = function(Value)
+        matchacc.HitboxExpander.Enabled = Value
+    end
+})
+
+HitboxGroup:AddToggle('HitboxVisualize', {
+    Text = 'Visualize',
+    Default = false,
+    Callback = function(Value)
+        matchacc.HitboxExpander.Visualize = Value
+    end
+}):AddColorPicker('HitboxColor', {
+    Default = matchacc.HitboxExpander.Color,
+    Title = 'Fill Color',
+    Callback = function(Value)
+        matchacc.HitboxExpander.Color = Value
+    end
+}):AddColorPicker('HitboxOutline', {
+    Default = matchacc.HitboxExpander.OutlineColor,
+    Title = 'Outline Color',
+    Callback = function(Value)
+        matchacc.HitboxExpander.OutlineColor = Value
+    end
+})
+
+HitboxGroup:AddSlider('HitboxFillTrans', {
+    Text = 'Fill Transparency',
+    Default = 0.5,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        matchacc.HitboxExpander.FillTransparency = Value
+    end
+})
+
+HitboxGroup:AddSlider('HitboxOutlineTrans', {
+    Text = 'Outline Transparency',
+    Default = 0.3,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        matchacc.HitboxExpander.OutlineTransparency = Value
+    end
+})
+
+HitboxGroup:AddSlider('HitboxSize', {
+    Text = 'Size',
+    Default = 15,
+    Min = 1,
+    Max = 37,
+    Rounding = 0,
+    Callback = function(Value)
+        matchacc.HitboxExpander.Size = Value
+    end
+})
+
+getgenv().Matcha.Legit = {
+    Aimlock = false,
+    SilentAim = false,  -- Mới: Toggle cho Silent Aim
+    SilentAimMethod = "Rival",  -- Mới: Default method
+    HitPart = "Head",
+    Smoothing = false,
+    SmoothingAmount = 0.1,
+    Prediction = 0.1,
+    JumpOffset = 0,
+    Offset = true
+}
+
+local LegitBox = Tabs.Main:AddRightTabbox()
+local AimlockBox = LegitBox:Addtab('Aimlock')
+local SilentBox = LegitBox:Addtab('SilentAim')
+
+AimlockBox:AddToggle('AimlockEnabled', {
+    Text = 'Aimlock',
+    Default = false,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.Aimlock = Value
+    end
+})
+
+AimlockBox:AddDropdown('HitPart', {
+    Values = {'Head', 'UpperTorso', 'HumanoidRootPart'},
+    Default = 1,
+    Multi = false,
+    Text = 'Hit Part',
+    Callback = function(Value)
+        getgenv().Matcha.Legit.HitPart = Value
+    end
+})
+
+AimlockBox:AddToggle('SmoothingEnabled', {
+    Text = 'Smoothing',
+    Default = false,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.Smoothing = Value
+    end
+})
+
+AimlockBox:AddSlider('SmoothingAmount', {
+    Text = 'Smoothing Amount',
+    Default = 0.1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.SmoothingAmount = Value
+    end
+})
+
+AimlockBox:AddSlider('Prediction', {
+    Text = 'Prediction',
+    Default = 0.1,
+    Min = 0,
+    Max = 1,
+    Rounding = 2,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.Prediction = Value
+    end
+})
+
+AimlockBox:AddSlider('JumpOffset', {
+    Text = 'Jump Offset',
+    Default = 0,
+    Min = -10,
+    Max = 10,
+    Rounding = 1,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.JumpOffset = Value
+    end
+})
+SilentBox:AddToggle('SilentAimEnabled', {
+    Text = 'Silent Aim',
+    Default = false,
+    Callback = function(Value)
+        getgenv().Matcha.Legit.SilentAim = Value
+    end
+})
+
+SilentBox:AddDropdown('SilentAimMethod', {
+    Values = {'Rival'},
+    Default = 0,
+    Multi = false,
+    Text = 'Silent Aim Method',
+    Callback = function(Value)
+        getgenv().Matcha.Legit.SilentAimMethod = Value
+    end
+})
+local function getClosestPlayerToMouse()  -- Hàm closest player từ code Rival
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+    local mousePosition = UserInputService:GetMouseLocation()
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local head = player.Character.Head
+            local headPosition, onScreen = Camera:WorldToViewportPoint(head.Position)
+
+            if onScreen then
+                local screenPosition = Vector2.new(headPosition.X, headPosition.Y)
+                local distance = (screenPosition - mousePosition).Magnitude
+
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local function lockCameraToHead(targetPlayer)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
+        local head = targetPlayer.Character.Head
+        local headPosition = Camera:WorldToViewportPoint(head.Position)
+        if headPosition.Z > 0 then
+            local cameraPosition = Camera.CFrame.Position
+            Camera.CFrame = CFrame.new(cameraPosition, head.Position)
+        end
+    end
+end
+
+-- RunService cho Rival (chạy khi method là Rival)
+RunService.Heartbeat:Connect(function()
+    if getgenv().Matcha.Legit.SilentAim and getgenv().Matcha.Legit.SilentAimMethod == "Rival" then
+        local targetPlayer = getClosestPlayerToMouse()  -- Closest player
+        if targetPlayer then
+            lockCameraToHead(targetPlayer)
+        end
+    end
+end)
+local function updateCamlock()
+    local targetName = matchacc.TargetAim.Target
+    if not getgenv().Matcha.Legit.Aimlock then return end
+
+    local target = players:FindFirstChild(targetName)
+    if not target or not target.Character then
+        return
+    end
+
+    local part = target.Character:FindFirstChild(getgenv().Matcha.Legit.HitPart)
+    if not part or not isAlive(target) or not isPlayerVisible(target) then
+        return
+    end
+
+    local pos = part.Position + (part.AssemblyLinearVelocity * (getgenv().Matcha.Legit.Prediction or 0))
+    if getgenv().Matcha.Legit.Offset and target.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall then
+        pos = pos + Vector3.new(0, getgenv().Matcha.Legit.JumpOffset or 0, 0)
+    end
+
+    local goal = CFrame.new(Camera.CFrame.Position, pos)
+    if getgenv().Matcha.Legit.Smoothing then
+        Camera.CFrame = Camera.CFrame:Lerp(goal, getgenv().Matcha.Legit.SmoothingAmount)
+    else
+        Camera.CFrame = goal
+    end
+end
+RunService.RenderStepped:Connect(function()
+    if getgenv().Matcha.Legit.Aimlock then
+        updateCamlock()
+    end
+end)
 local ChinaHatGroup = Tabs.Visual:AddRightGroupbox('China Hat')
 getgenv().ChinaHatSettings = {
     enabled = false, 
@@ -2461,7 +2885,6 @@ local function AttachAuraSafe(character)
     beamSymbol.Parent = container
 end
 
--- Function để attach tất cả aura selected khi enabled
 local function AttachAuras(character)
     -- Clear all old auras first
     for _, child in ipairs(character:GetChildren()) do
@@ -2579,8 +3002,8 @@ local function applyChams(character)
         end
     end
 end
-
-local function onChamsCharacterAdded(character)
+local function onChamsCharacter(character)
+    task.wait(1)
     applyChams(character)
     character.ChildAdded:Connect(function(child)
         if child:IsA("Tool") then
@@ -2589,10 +3012,11 @@ local function onChamsCharacterAdded(character)
     end)
 end
 
-localPlayer.CharacterAdded:Connect(onChamsCharacterAdded)
+localPlayer.CharacterAdded:Connect(onChamsCharacter)
 if localPlayer.Character then
-    onChamsCharacterAdded(localPlayer.Character)
+    onChamsCharacter(localPlayer.Character)
 end
+
 
 SelfGroup:AddToggle('WeaponChamsEnabled', {
     Text = 'Weapon Enabled',
@@ -2678,15 +3102,17 @@ local function ToggleTrail(Bool)
     end
 end
 
-task.wait(1)
-local function onCharacterAdded(character)
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if getgenv().trailEnabled then
+        ToggleTrail(true)
+    end
+end)
+if localPlayer.Character then 
     if getgenv().trailEnabled then
         ToggleTrail(true)
     end
 end
-
-localPlayer.CharacterAdded:Connect(onCharacterAdded)
-if localPlayer.Character then onCharacterAdded(localPlayer.Character) end
 
 SelfGroup:AddToggle("TrailToggle", {
     Text = "Trail",
@@ -4704,439 +5130,7 @@ RS.RenderStepped:Connect(function()
         end
     end
 end)
-local GunModsGroup = Tabs.Main:AddRightGroupbox('Gun Mods')
-matchacc.EquipAllGuns = {
-    Enabled = false,
-}
 
--- Globals (sau các global vars khác)
-local EquipAllConnection = nil
-local lastEquipTime = 0
-local EquipAllConnection
-local EquipAddedConnection
-
--- Function equipAllGuns đã sửa
-local function equipAllGuns()
-    local char = localPlayer.Character
-    local backpack = localPlayer.Backpack
-    if not char or not backpack then return end
-    for _, tool in ipairs(backpack:GetChildren()) do
-        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
-            tool.Parent = char
-        end
-    end
-end
-
-local function setupEquipAll()
-    local char = localPlayer.Character
-    local backpack = localPlayer.Backpack
-    if not char or not backpack or not matchacc.EquipAllGuns.Enabled then return end
-    
-    equipAllGuns()
-    
-    if EquipAllConnection then
-        EquipAllConnection:Disconnect()
-        EquipAllConnection = nil
-    end
-    EquipAllConnection = char.ChildRemoved:Connect(function(child)
-        if matchacc.EquipAllGuns.Enabled and child:IsA("Tool") and child:FindFirstChild("Ammo") and (tick() - lastEquipTime) >= 0.5 then
-            lastEquipTime = tick()
-            task.spawn(function()
-                task.wait(0.1)
-                equipAllGuns()
-            end)
-        end
-    end)
-    
-    if EquipAddedConnection then
-        EquipAddedConnection:Disconnect()
-        EquipAddedConnection = nil
-    end
-    EquipAddedConnection = backpack.ChildAdded:Connect(function(child)
-        if matchacc.EquipAllGuns.Enabled and child:IsA("Tool") and child:FindFirstChild("Ammo") then
-            child.Parent = char
-        end
-    end)
-end
-
--- Character respawn
-localPlayer.CharacterAdded:Connect(function()
-    task.wait(5)
-    if matchacc.EquipAllGuns.Enabled then
-        setupEquipAll()
-    end
-end)
-
--- Thêm vào GunModsGroup (sau Wallbang)
-GunModsGroup:AddToggle('EquipAllGunsEnabled', {
-    Text = 'Equip All Guns',
-    Default = false,
-    Callback = function(Value)
-        matchacc.EquipAllGuns.Enabled = Value
-        if Value then
-            setupEquipAll()
-        else
-            if EquipAllConnection then
-                EquipAllConnection:Disconnect()
-                EquipAllConnection = nil
-            end
-        end
-    end
-}):AddKeyPicker('EquipAllGunsKey', {
-    Default = 'none',
-    SyncToggleState = true,
-    Mode = 'Toggle',
-    Text = 'Equip All Guns'
-})
-GunModsGroup:AddToggle('RapidFireEnabled', {
-    Text = 'Rapid Fire',
-    Default = false,
-    Callback = function(Value)
-        matchacc.RapidFire.Enabled = Value
-        if not getnamecallmethod then
-            Library:Notify("Your executor does not support this feature.", 3)
-        end
-    end
-})
-
-GunModsGroup:AddToggle('WallbangEnabled', {
-    Text = 'Wallbang',
-    Default = false,
-    Callback = function(Value)
-        matchacc.Wallbang.Enabled = Value
-        if getnamecallmethod then
-            local Handler = game:FindService("ReplicatedStorage").MainModule
-            local Module = require(Handler)
-            if Value == true and workspace:FindFirstChild("Vehicles") then
-                Module.Ignored = {workspace:WaitForChild("Vehicles"), workspace:WaitForChild("MAP"), workspace:WaitForChild("Ignored")}
-            else
-                if workspace:FindFirstChild("Vehicles") then
-                    Module.Ignored = {workspace:WaitForChild("Vehicles"), workspace:WaitForChild("Ignored")}
-                end
-            end
-        else
-            Library:Notify("Your executor does not support this feature.", 3)
-        end
-    end
-})
-getgenv().RemoveShootAnimationsEnabled = false
-getgenv().ShootAnimationIds = {
-    ["rbxassetid://2807049953"] = true, 
-    ["rbxassetid://2809413000"] = true, 
-    ["rbxassetid://2809419094"] = true,  
-    ["rbxassetid://507768375"] = true,
-    ["rbxassetid://507755388"] = true,
-    ["rbxassetid://2807049953"] = true,
-    ["rbxassetid://2877910736"] = true 
-}
-
-getgenv().StopAnimationTracks = function(character)
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-            if getgenv().ShootAnimationIds[track.Animation.AnimationId] then
-                track:Stop()
-            end
-        end
-    end
-end
-
-getgenv().MonitorCharacter = function(character)
-    character.DescendantAdded:Connect(function(descendant)
-        if descendant:IsA("AnimationTrack") and getgenv().RemoveShootAnimationsEnabled then
-            if getgenv().ShootAnimationIds[descendant.Animation.AnimationId] then
-                descendant:Stop()
-            end
-        end
-    end)
-end
-
-getgenv().MonitorPlayers = function()
-    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-        local character = player.Character or player.CharacterAdded:Wait()
-        getgenv().StopAnimationTracks(character)
-        getgenv().MonitorCharacter(character)
-
-        player.CharacterAdded:Connect(function(newCharacter)
-            getgenv().StopAnimationTracks(newCharacter)
-            getgenv().MonitorCharacter(newCharacter)
-        end)
-    end
-
-    game:GetService("Players").PlayerAdded:Connect(function(player)
-        player.CharacterAdded:Connect(function(character)
-            getgenv().StopAnimationTracks(character)
-            getgenv().MonitorCharacter(character)
-        end)
-    end)
-end
-
-getgenv().MonitorAnimations = function()
-    game:GetService("RunService").RenderStepped:Connect(function()
-        if getgenv().RemoveShootAnimationsEnabled then
-            for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-                local character = player.Character
-                if character then
-                    getgenv().StopAnimationTracks(character)
-                end
-            end
-        end
-    end)
-end
-
-GunModsGroup:AddToggle("AntiflingToggle", {
-    Text = "remove shoot animations",
-    Default = false,
-    Callback = function(enabled)
-        getgenv().RemoveShootAnimationsEnabled = enabled
-        if enabled then
-            getgenv().MonitorPlayers()
-            task.spawn(getgenv().MonitorAnimations)
-        end
-    end
-})
-
-
-
-local HitboxGroup = Tabs.Main:AddRightGroupbox('Hitbox Expander')
-
-HitboxGroup:AddToggle('HitboxEnabled', {
-    Text = 'Enabled',
-    Default = false,
-    Callback = function(Value)
-        matchacc.HitboxExpander.Enabled = Value
-    end
-})
-
-HitboxGroup:AddToggle('HitboxVisualize', {
-    Text = 'Visualize',
-    Default = false,
-    Callback = function(Value)
-        matchacc.HitboxExpander.Visualize = Value
-    end
-}):AddColorPicker('HitboxColor', {
-    Default = matchacc.HitboxExpander.Color,
-    Title = 'Fill Color',
-    Callback = function(Value)
-        matchacc.HitboxExpander.Color = Value
-    end
-}):AddColorPicker('HitboxOutline', {
-    Default = matchacc.HitboxExpander.OutlineColor,
-    Title = 'Outline Color',
-    Callback = function(Value)
-        matchacc.HitboxExpander.OutlineColor = Value
-    end
-})
-
-HitboxGroup:AddSlider('HitboxFillTrans', {
-    Text = 'Fill Transparency',
-    Default = 0.5,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        matchacc.HitboxExpander.FillTransparency = Value
-    end
-})
-
-HitboxGroup:AddSlider('HitboxOutlineTrans', {
-    Text = 'Outline Transparency',
-    Default = 0.3,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        matchacc.HitboxExpander.OutlineTransparency = Value
-    end
-})
-
-HitboxGroup:AddSlider('HitboxSize', {
-    Text = 'Size',
-    Default = 15,
-    Min = 1,
-    Max = 37,
-    Rounding = 0,
-    Callback = function(Value)
-        matchacc.HitboxExpander.Size = Value
-    end
-})
-
-getgenv().Matcha.Legit = {
-    Aimlock = false,
-    SilentAim = false,  -- Mới: Toggle cho Silent Aim
-    SilentAimMethod = "Rival",  -- Mới: Default method
-    BulletTP = false,  -- Mới: Toggle cho Bullet TP (chỉ dùng cho Raycast)
-    HitPart = "Head",
-    Smoothing = false,
-    SmoothingAmount = 0.1,
-    Prediction = 0.1,
-    JumpOffset = 0,
-    Offset = true
-}
-
-local LegitBox = Tabs.Main:AddRightGroupbox('Legit')
-
-
-LegitBox:AddToggle('AimlockEnabled', {
-    Text = 'Aimlock',
-    Default = false,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.Aimlock = Value
-    end
-})
--- Thêm UI mới cho Silent Aim (dưới Aimlock)
-LegitBox:AddToggle('SilentAimEnabled', {
-    Text = 'Silent Aim',
-    Default = false,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.SilentAim = Value
-    end
-})
-
-LegitBox:AddDropdown('SilentAimMethod', {
-    Values = {'Rival'},
-    Default = 0,
-    Multi = false,
-    Text = 'Silent Aim Method',
-    Callback = function(Value)
-        getgenv().Matcha.Legit.SilentAimMethod = Value
-    end
-})
-
---[[LegitBox:AddToggle('BulletTP', {
-    Text = 'Bullet TP (Raycast Only)',
-    Default = false,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.BulletTP = Value
-    end
-})]]
-LegitBox:AddDropdown('HitPart', {
-    Values = {'Head', 'UpperTorso', 'HumanoidRootPart'},
-    Default = 1,
-    Multi = false,
-    Text = 'Hit Part',
-    Callback = function(Value)
-        getgenv().Matcha.Legit.HitPart = Value
-    end
-})
-
-LegitBox:AddToggle('SmoothingEnabled', {
-    Text = 'Smoothing',
-    Default = false,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.Smoothing = Value
-    end
-})
-
-LegitBox:AddSlider('SmoothingAmount', {
-    Text = 'Smoothing Amount',
-    Default = 0.1,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.SmoothingAmount = Value
-    end
-})
-
-LegitBox:AddSlider('Prediction', {
-    Text = 'Prediction',
-    Default = 0.1,
-    Min = 0,
-    Max = 1,
-    Rounding = 2,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.Prediction = Value
-    end
-})
-
-LegitBox:AddSlider('JumpOffset', {
-    Text = 'Jump Offset',
-    Default = 0,
-    Min = -10,
-    Max = 10,
-    Rounding = 1,
-    Callback = function(Value)
-        getgenv().Matcha.Legit.JumpOffset = Value
-    end
-})
-
-local function getClosestPlayerToMouse()  -- Hàm closest player từ code Rival
-    local closestPlayer = nil
-    local shortestDistance = math.huge
-    local mousePosition = UserInputService:GetMouseLocation()
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-            local head = player.Character.Head
-            local headPosition, onScreen = Camera:WorldToViewportPoint(head.Position)
-
-            if onScreen then
-                local screenPosition = Vector2.new(headPosition.X, headPosition.Y)
-                local distance = (screenPosition - mousePosition).Magnitude
-
-                if distance < shortestDistance then
-                    closestPlayer = player
-                    shortestDistance = distance
-                end
-            end
-        end
-    end
-
-    return closestPlayer
-end
-
-local function lockCameraToHead(targetPlayer)
-    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
-        local head = targetPlayer.Character.Head
-        local headPosition = Camera:WorldToViewportPoint(head.Position)
-        if headPosition.Z > 0 then
-            local cameraPosition = Camera.CFrame.Position
-            Camera.CFrame = CFrame.new(cameraPosition, head.Position)
-        end
-    end
-end
-
--- RunService cho Rival (chạy khi method là Rival)
-RunService.Heartbeat:Connect(function()
-    if getgenv().Matcha.Legit.SilentAim and getgenv().Matcha.Legit.SilentAimMethod == "Rival" then
-        local targetPlayer = getClosestPlayerToMouse()  -- Closest player
-        if targetPlayer then
-            lockCameraToHead(targetPlayer)
-        end
-    end
-end)
-local function updateCamlock()
-    local targetName = matchacc.TargetAim.Target
-    if not getgenv().Matcha.Legit.Aimlock then return end
-
-    local target = players:FindFirstChild(targetName)
-    if not target or not target.Character then
-        return
-    end
-
-    local part = target.Character:FindFirstChild(getgenv().Matcha.Legit.HitPart)
-    if not part or not isAlive(target) or not isPlayerVisible(target) then
-        return
-    end
-
-    local pos = part.Position + (part.AssemblyLinearVelocity * (getgenv().Matcha.Legit.Prediction or 0))
-    if getgenv().Matcha.Legit.Offset and target.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall then
-        pos = pos + Vector3.new(0, getgenv().Matcha.Legit.JumpOffset or 0, 0)
-    end
-
-    local goal = CFrame.new(Camera.CFrame.Position, pos)
-    if getgenv().Matcha.Legit.Smoothing then
-        Camera.CFrame = Camera.CFrame:Lerp(goal, getgenv().Matcha.Legit.SmoothingAmount)
-    else
-        Camera.CFrame = goal
-    end
-end
-RunService.RenderStepped:Connect(function()
-    if getgenv().Matcha.Legit.Aimlock then
-        updateCamlock()
-    end
-end)
 local CharacterModsGroup = Tabs.Character:AddRightGroupbox('Character Mods')
 
 -- Anti Slowdown (No Slow / No Jump Cooldown / No Reload Slow)
