@@ -299,6 +299,13 @@ local matchacc = {
         HitSoundVolume = 5,
         HitNotifications = false,
         HitNotificationsTime = 3,
+	    HitChams = {
+		    Enabled = false,
+		    Color = Color3.fromRGB(255, 255, 255),
+		    Lifetime = 3,
+		    Transparency = 0.7,
+		    Material = "Neon"
+		},
     },
     Checks = {
         Wall = false,
@@ -1093,6 +1100,92 @@ PlayersGroup:AddToggle('AutoKillAllEnabled', {
     end
 })
 local HitEffectsGroup = Tabs.Main:AddLeftGroupbox('Hit Effects')
+local hitPreviousHealth = {}
+
+HitEffectsGroup:AddToggle('HitChamsEnabled', {
+    Text = 'Hit Chams',
+    Default = false,
+    Callback = function(Value)
+        matchacc.HitEffects.HitChams = matchacc.HitEffects.HitChams or {}
+        matchacc.HitEffects.HitChams.Enabled = Value
+        if Value then
+            hitChamsConnection = RunService.Heartbeat:Connect(function()
+                local currentTargetName = (matchacc.TargetAim.Target ~= "None" and matchacc.TargetAim.Target) or matchacc.AutoKill.Target or nil
+                if not currentTargetName then return end
+                local targetPlayer = players:FindFirstChild(currentTargetName)
+                if not targetPlayer or not targetPlayer.Character then return end
+                local hum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if not hum then return end
+                local userId = targetPlayer.UserId
+                if not hitPreviousHealth[userId] then hitPreviousHealth[userId] = hum.Health end
+                if hum.Health < hitPreviousHealth[userId] then
+                    local clone = targetPlayer.Character:Clone()
+                    clone.Name = "HitChams_" .. targetPlayer.Name
+                    for _, child in pairs(clone:GetChildren()) do
+                        if child:IsA("Humanoid") or child:IsA("Script") or child:IsA("LocalScript") then
+                            child:Destroy()
+                        end
+                    end
+                    for _, part in pairs(clone:GetDescendants()) do
+                        if part:IsA("BasePart") or part:IsA("MeshPart") then
+                            part.Anchored = true
+                            part.CanCollide = false
+                            part.Transparency = matchacc.HitEffects.HitChams.Transparency
+                            part.Material = Enum.Material[matchacc.HitEffects.HitChams.Material]
+                            part.Color = matchacc.HitEffects.HitChams.Color
+                        end
+                    end
+                    clone.Parent = workspace
+                    game.Debris:AddItem(clone, matchacc.HitEffects.HitChams.Lifetime)
+                end
+                hitPreviousHealth[userId] = hum.Health
+            end)
+        else
+            if hitChamsConnection then
+                hitChamsConnection:Disconnect()
+                hitChamsConnection = nil
+            end
+        end
+    end
+}):AddColorPicker('HitChamsColor', {
+    Default = Color3.fromRGB(255, 0, 0),
+    Title = 'Chams Color',
+    Callback = function(Value)
+        matchacc.HitEffects.HitChams.Color = Value
+    end
+})
+
+HitEffectsGroup:AddSlider('HitChamsLifetime', {
+    Text = 'Lifetime (s)',
+    Default = 3,
+    Min = 1,
+    Max = 10,
+    Rounding = 0,
+    Callback = function(Value)
+        matchacc.HitEffects.HitChams.Lifetime = Value
+    end
+})
+
+HitEffectsGroup:AddSlider('HitChamsTransparency', {
+    Text = 'Transparency',
+    Default = 0.7,
+    Min = 0,
+    Max = 1,
+    Rounding = 1,
+    Callback = function(Value)
+        matchacc.HitEffects.HitChams.Transparency = Value
+    end
+})
+
+HitEffectsGroup:AddDropdown('HitChamsMaterial', {
+    Values = {'Neon', 'ForceField'},
+    Default = 1,
+    Multi = false,
+    Text = 'Material',
+    Callback = function(Value)
+        matchacc.HitEffects.HitChams.Material = Value
+    end
+})
 local TweenService = game:GetService("TweenService")
 local RaycastParams = RaycastParams.new()
 RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
