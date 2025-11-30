@@ -910,6 +910,7 @@ TargetAimTab:AddToggle('SpectateTarget', {
         Toggles.SpectateTarget.Value = Value
     end
 })
+local ChatGroup = Tabs.Main:AddLeftGroupbox('lol ez')
 local AutoKillGroup = Tabs.Main:AddLeftGroupbox('Auto kill')
 
 AutoKillGroup:AddToggle('AutoKillEnabled', {
@@ -2137,6 +2138,14 @@ spawn(LPH_JIT_ULTRA(function()
                         drawingInstances.Cham.Parent = nil
                         drawingInstances.Name.Visible = false
                         drawingInstances.HealthText.Visible = false
+                    elseif not isAlive(v) then
+                        drawingInstances.Box.Visible = false
+                        drawingInstances.BoxOutline.Visible = false
+                        drawingInstances.Health.Visible = false
+                        drawingInstances.HealthOutline.Visible = false
+                        drawingInstances.Cham.Parent = nil
+                        drawingInstances.Name.Visible = false
+                        drawingInstances.HealthText.Visible = false
                     else
                         if onscreen then
                             local charhum2D = Camera:WorldToViewportPoint(character.HumanoidRootPart.Position)
@@ -2247,14 +2256,6 @@ spawn(LPH_JIT_ULTRA(function()
                     drawingInstances.Name.Visible = false
                     drawingInstances.HealthText.Visible = false
                 end
-			else
-				drawingInstances.Box.Visible = false
-				drawingInstances.BoxOutline.Visible = false
-				drawingInstances.Health.Visible = false
-				drawingInstances.HealthOutline.Visible = false
-				drawingInstances.Cham.Parent = nil
-				drawingInstances.Name.Visible = false
-				drawingInstances.HealthText.Visible = false
             end
         end
     end
@@ -4798,7 +4799,7 @@ RunService.Heartbeat:Connect(function(dt)
     local Tool = localPlayer.Character:FindFirstChildOfClass("Tool")
     local SavedPosition = hrp.CFrame
     if useDesync and hrp then
-        if matchacc.TargetAim.Strafe and matchacc.TargetAim.Target ~= "None" and TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("Head") then
+        if matchacc.TargetAim.Strafe and matchacc.TargetAim.Target ~= "None" and TargetPlayer and TargetPlayer.Character and TargetPlayer.Character:FindFirstChild("Head") and not (AutoArmorActive or AutoLoadoutActive or BuyingSingleActive or BuyingAmmoActive) then
             if not TargetPlayer.Character:FindFirstChild("ForceField") then
                 if not KnockCheck(TargetPlayer) and localPlayer.Character.BodyEffects.Reload.Value == false then
                     if matchacc.TargetAim.VoidResolver and (TargetPlayer.Character.HumanoidRootPart.Position - Vector3.new(0, 0, 0)).Magnitude > 5000 then return end
@@ -4864,14 +4865,14 @@ RunService.Heartbeat:Connect(function(dt)
                     end)
                 end
             else
-                hrp.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                hrp.CFrame += Vector3.new(math.random(-11223344556677889900,11223344556677889900), math.random(0,11223344556677889900), math.random(-11223344556677889900,11223344556677889900))
                 RunService:BindToRenderStep("RestoreRandom", 199, function()
                     hrp.CFrame = SavedPosition
                     RunService:UnbindFromRenderStep("RestoreRandom")
                 end)
             end
         elseif TargetPlayer.Character:FindFirstChild("ForceField") or not Tool then
-            hrp.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+            hrp.CFrame += Vector3.new(math.random(-11223344556677889900,11223344556677889900), math.random(0,11223344556677889900), math.random(-11223344556677889900,11223344556677889900))
             RunService:BindToRenderStep("RestoreForceField", 199, function()
                 hrp.CFrame = SavedPosition
                 RunService:UnbindFromRenderStep("RestoreForceField")
@@ -5453,7 +5454,7 @@ RunService.Heartbeat:Connect(function(dt)
                             Library:Notify("Matcha.cc - Shooting Target.", 1)
                             MainEvent:FireServer("ShootGun", toolHandle, toolHandle.Position, Target.Character.Head.Position, targetHead, Vector3.new(0, 1, 0))
                         else
-                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-11223344556677889900,11223344556677889900), math.random(0,11223344556677889900), math.random(-11223344556677889900,11223344556677889900))
                             Library:Notify("Matcha.cc - Waiting.. Target has spawn protection.", 1)
                             MainEvent:FireServer("Reload", tool)
                         end
@@ -5475,7 +5476,7 @@ RunService.Heartbeat:Connect(function(dt)
                             end
                         elseif isDead == true then
                             -- Move to safe position when target is dead
-                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                            localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-11223344556677889900,11223344556677889900), math.random(0,11223344556677889900), math.random(-11223344556677889900,11223344556677889900))
                             Library:Notify("Matcha.cc - Waiting.. Target is currently dead.", 1)
                             MainEvent:FireServer("Reload", tool)
                         end
@@ -5489,7 +5490,7 @@ RunService.Heartbeat:Connect(function(dt)
 
                     end
                 else
-                    localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                    localPlayer.Character.HumanoidRootPart.CFrame += Vector3.new(math.random(-11223344556677889900,11223344556677889900), math.random(0,11223344556677889900), math.random(-11223344556677889900,11223344556677889900))
                     Library:Notify("Matcha.cc - Waiting.. Equip your gun while using 'Auto Kill Target'.", 1)
 
                     if matchacc.AutoKill.AutoKillDesync then
@@ -5504,7 +5505,7 @@ RunService.Heartbeat:Connect(function(dt)
             -- If no target is found
             local humanoidRootPart = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
             if humanoidRootPart then
-                humanoidRootPart.CFrame += Vector3.new(math.random(-80000,80000), math.random(0,80000), math.random(-80000,80000))
+                humanoidRootPart.CFrame += Vector3.new(math.random(-11223344556677889900,11223344556677889900), math.random(0,11223344556677889900), math.random(-11223344556677889900,11223344556677889900))
             end
             Library:Notify("Matcha.cc - Target not found(Hide void).", 3)
             if matchacc.AutoKill.AutoKillDesync then
@@ -5971,13 +5972,335 @@ LeftGroupBox:AddToggle('MyToggle', {
 }):AddKeyPicker('Rizzchat', { Default = 'none', SyncToggleState = true, Mode = 'Toggle', Text = 'rizzchat' })
 
 Toxic = {
-    "EZ",
-    "Bro doesn't know what aimlabs is",
-    "SO EZ",
-    "What are you aiming at, your dad?",
-    "Bro doesn't have rizz",
-    "Sigma who?",
-    "storm trooper ahh"
+"EZ",
+"Bro doesn't know what aimlabs is",
+"SO EZ",
+"What are you aiming at, the skybox?",
+"Bro doesn't have rizz",
+"Sigma who?",
+"storm trooper ahh",
+
+"Am still buffering",
+"Bro shooting at butterflies",
+"Your aim took PTO",
+"Skill issue deluxe edition",
+"Crosshair needs therapy",
+"Bro lagging in real life",
+"Movement downloaded wrong",
+"Rizz meter: 0%",
+"Sigma mode: disabled",
+"Bullets allergic to damage",
+"Your aim is camera shy",
+"Bro fighting shadows",
+"Accuracy on cooldown",
+"Gameplay running at 12 FPS",
+"Aim.exe stopped responding",
+"Stormtrooper firmware installed",
+"Bro’s crosshair wandering",
+"Missed in 4K",
+"Bro swinging at the air",
+"Movement lookin like wet socks",
+"Your aim wandered off the map",
+"Controller disconnected vibes",
+"NPC aim > your aim",
+"Bullets practicing pacifism",
+"Your aim forgot the assignment",
+"Bro plays like it’s a cutscene",
+"Accuracy experiencing turbulence",
+"Bro using demo version skills",
+"Crosshair lost its purpose",
+"Your aim needs a GPS",
+"Movement confused about reality",
+"Aim spiritually lost",
+"Bro missing like it’s tradition",
+"Your aim went AFK",
+"Bro’s WiFi powered by hope",
+"Lag fighting lag",
+"Bro aiming like he’s daydreaming",
+"Crosshair on vacation",
+"Bro’s bullets taking detours",
+"Movement stuck in airplane mode",
+"Bro playing on grandma settings",
+"Your aim needs calibration",
+"Skillpack not installed",
+"Accuracy in spectator mode",
+"Bro’s aim loaded the wrong map",
+"Bullets refusing to cooperate",
+"Bro still in warmup",
+"Crosshair socially anxious",
+"Aim drifting like a car",
+"Your bullets scared of commitment",
+"Movement having identity issues",
+"Bro’s aim under construction",
+"Aim RNG not in your favor",
+"Bro fighting gravity instead",
+"Accuracy clocked out early",
+"Your aim is guessing",
+"Stormtrooper mode: ultra",
+"Bro controlling recoil not aim",
+"Your crosshair filing taxes",
+"Aim forgot to spawn in",
+"Movement stuck on loading screen",
+"Bro playing on emotional ping",
+"Crosshair doing side quests",
+"Your aim needs counseling",
+"Bro’s bullets peaceful mode",
+"Aim failed to render",
+"Movement lagging IRL",
+"Bro using free trial aim",
+"Accuracy downgraded",
+"Crosshair overslept",
+"Your aim exploring the scenery",
+"Bro aiming with confidence but no direction",
+"Bullets wandering aimlessly",
+"Aim stuck in the loading zone",
+"Movement slippery like ice",
+"Bro’s aim needs patch notes",
+"Your aim buffering in HD",
+"Crosshair trying its best… maybe",
+"Bro swinging like a malfunctioning fan",
+"Your aim studying astronomy",
+"Aim forgot its job",
+"Bro hitting everything but enemies",
+"Accuracy in low power mode",
+"Crosshair vibing, not aiming",
+"Movement disconnected",
+"Bro missing like he’s sponsored by misclicks",
+"Your aim took a smoke break",
+"Bullets lost in transit",
+"Aim trying to escape the game",
+"Bro moving like WiFi on 1 bar",
+"Crosshair running diagnostics",
+"Your aim ran out of RAM",
+"Aim asked for tech support",
+"Bro’s accuracy in airplane mode",
+"Movement downloaded from Wish",
+"Bullets still loading",
+"Your aim politely avoiding hits",
+"Bro playing like the screen is optional",
+"Aim trying to find itself",
+"Crosshair doing freestyle mode",
+"Movement emotionally unstable",
+"Your aim saw the enemy and panicked",
+"Bro’s aim fell asleep",
+"Accuracy evaporated",
+"Aim forgot collision exists",
+"Bro missing like it’s a hobby",
+"Your aim is a hazard",
+"Crosshair sightseeing mid-fight",
+"Aim desynced from reality",
+"Bro fumbling the universe",
+"Movement delayed by 3 business days",
+"Your aim running on Windows 95",
+"Bullets refusing to participate",
+"Bro’s aim was not invited",
+"Accuracy taking a vacation",
+"Aim socially distancing",
+"Movement powered by sadness",
+"Bro’s crosshair practicing free will",
+"Your aim got stage fright",
+"Aim took the scenic route",
+"Bullets lagging behind",
+"Crosshair locked in confusion",
+"Bro playing with negative FPS",
+"Accuracy downgraded to demo",
+"Aim malfunction detected",
+"Bro still calibrating mid-fight",
+"Your aim filed for retirement",
+"Crosshair crashed",
+"Aim dehydrated",
+"Bro lost in the tutorial",
+"Accuracy not responding",
+"Your aim out of service",
+"Aim forgot to clock in",
+"Movement refusing commands",
+"Bro’s bullets questioning life",
+"Your aim is guessing wildly",
+"Accuracy in economy mode",
+"Bro casting invisible bullets",
+"Crosshair slipped",
+"Aim taking a coffee break",
+"Bro’s skill expired",
+"Your aim stuck in traffic",
+"Accuracy on lunch break",
+"Bro aiming with vibes only",
+"Bullets too shy to hit",
+"Movement soft-locked",
+"Aim in spectator mode",
+"Bro struggling to load accuracy",
+"Your aim practicing pacifism",
+"Crosshair confused and scared",
+"Aim downloading updates",
+"Bro playing at 2 FPS",
+"Accuracy got nerfed",
+"Your aim suffering lag spikes",
+"Movement doing interpretive dance",
+"Aim fell into the void",
+"Bro missing geometrically impossible shots",
+"Crosshair trying to escape",
+"Your aim is legally blind (in-game)",
+"Aim drifting into another timeline",
+"Bro using expired accuracy",
+"Movement skipped tutorial",
+"Accuracy sleeping on the job",
+"Aim lagging behind reality",
+"Bro hitting the environment only",
+"Your aim lost connection",
+"Crosshair teleported away",
+"Aim stunned by existence",
+"Bro failing aim labs IRL",
+"Accuracy scared of enemies",
+"Your aim rendered in 144p",
+"Aim refusing to load assets",
+"Bro missing the broad side of a barn",
+"Movement glitching",
+"Accuracy socially awkward",
+"Aim listening to music instead",
+"Bro’s bullets on energy saver",
+"Your aim daydreaming",
+"Crosshair on strike",
+"Aim running outdated firmware",
+"Bro aiming at the moon",
+"Accuracy evaporated",
+"Movement sideways for no reason",
+"Your aim soft-crashed",
+"Aim started lagging emotionally",
+"Bro throwing warning shots only",
+"Accuracy downgraded itself",
+"Your aim ghosting the enemy",
+"Crosshair off-task again",
+"Aim opening another app",
+"Bro’s bullets overshot the universe",
+"Movement experiencing burnout",
+"Accuracy in exile",
+"Aim went AFK",
+"Bro sightseeing mid-fight",
+"Your aim yawning",
+"Crosshair negotiating hits",
+"Aim too tired to function",
+"Bro blasting everything but enemies",
+"Accuracy taking personal days",
+"Aim studying the environment",
+"Your aim under review",
+"Crosshair needs updates",
+"Aim rebelling",
+"Bro’s aim staged a protest",
+"Accuracy disconnected spiritually",
+"Aim floating around",
+"Your crosshair afraid of commitment",
+"Bro needs aim therapy",
+"Aim fumbling basic tasks",
+"Movement directionless",
+"Accuracy running diagnostics",
+"Your aim unsure of life choices",
+"Crosshair recalibrating vibes",
+"Aim zoned out",
+"Bro hit the air perfectly",
+"Accuracy missing completely",
+"Aim spinning out of control",
+"Bro performing a magic trick instead of aiming",
+"Your aim procrastinating",
+"Crosshair confused about existence",
+"Aim wants to go home",
+"Bro misclicked his confidence",
+"Accuracy melting",
+"Aim expired",
+"Your aim visiting another match",
+"Crosshair chilling",
+"Aim replaying memories",
+"Movement daydreaming",
+"Bro skipped accuracy day",
+"Your aim still buffering",
+"Accuracy reconsidering its career",
+"Aim dizzy",
+"Bro misinterpreting geometry",
+"Your aim undecided",
+"Crosshair weak",
+"Aim practicing self-care",
+"Bro failing aim school",
+"Accuracy strolling",
+"Aim drifting off",
+"Your aim derailed",
+"Movement processing slowly",
+"Bro running Windows Vista aim",
+"Accuracy loading for eternity",
+"Aim refusing orders",
+"Your aim in safe mode",
+"Crosshair malfunctioning creatively",
+"Aim too shocked to aim",
+"Bro missed so hard it looped",
+"Accuracy sleeping peacefully",
+"Aim in airplane mode",
+"Your aim pretending to be blind",
+"Bro’s bullets hesitating",
+"Crosshair short-circuited",
+"Aim out of energy",
+"Accuracy submitted resignation",
+"Aim confused about physics",
+"Movement taking scenic route",
+"Bro applying for new aim",
+"Accuracy underwhelmed",
+"Aim scared of the target",
+"Your aim misplaced",
+"Crosshair borrowed from another game",
+"Aim reported missing",
+"Bro downloaded the wrong skill pack",
+"Accuracy frozen",
+"Aim needs therapy",
+"Movement overwhelmed",
+"Your aim lagging mentally",
+"Aim refusing to lock on",
+"Bro practicing nonviolence",
+"Accuracy took a sick day",
+"Your aim yeeted itself",
+"Crosshair got lost",
+"Aim taking shortcuts",
+"Bro’s aim compressed",
+"Accuracy corrupted",
+"Aim rebooting",
+"Your aim stunned",
+"Crosshair burnt out",
+"Aim contemplating life",
+"Bro invented new miss angles",
+"Accuracy on strike again",
+"Aim refusing input",
+"Your aim under maintenance",
+"Crosshair crashed",
+"Aim clocked out",
+"Bro forgot to aim",
+"Accuracy sneezing",
+"Aim trembling",
+"Your aim lost in translation",
+"Crosshair lagging spiritually",
+"Aim searching for peace",
+"Bro wandered off mentally",
+"Accuracy confused deeply",
+"Aim stuck in a loop",
+"Your aim smacking air",
+"Crosshair running late",
+"Aim malfunction magical edition",
+"Bro missed intentionally (I hope)",
+"Accuracy unavailable",
+"Aim rendering issues",
+"Your aim practically invisible",
+"Crosshair glitching stylishly",
+"Aim tripped",
+"Bro’s aim self-destructed",
+"Accuracy freezing up",
+"Aim vibing instead of aiming",
+"Your aim rebooting emotions",
+"Crosshair politely declining",
+"Aim fainted",
+"Bro confusing enemies with the map",
+"Accuracy fell off",
+"Aim snoring",
+"Your aim mentally absent",
+"Crosshair sidetracked",
+"Aim unfocused completely",
+"Bro delivering warning shots",
+"Accuracy in nap mode",
+"Aim drifting like a balloon",
+"Your aim hopelessly optimistic"
 }
 
 ChatVersion = TextChatService.ChatVersion
@@ -6030,15 +6353,211 @@ LeftGroupBox:AddToggle('MyToggle', {
 
 Promo = {
     "Matcha.cc On Top🍵",
-    "Matcha.cc is a free script and yall die to it..🍵",
-    "Must be hard without Matcha.cc 💔🍵",
+    "Matcha.cc so clean yall still losing to it..🍵",
+    "Must be rough playing without Matcha.cc 💔🍵",
     "cant win a hvh? maybe try /matchahvh🍵",
-    "🍵if u wanna win hop in /matchahvh",
-    "🍵hey come on if u cant win get matcha . cc",
-    "how to win a hvh? step 1 get matcha . cc🍵",
-    "gg/Vsnz2wfjP5🍵"
+    "🍵if u wanna stop losing hop in /matchahvh",
+    "🍵bro if u cant win just get Matcha . cc",
+    "how to win a hvh? step 1: get Matcha . cc🍵",
+    "gg/Vsnz2wfjP5🍵",
+    "Matcha.cc users eat, yall starve 🍵",
+    "No Matcha.cc? no wins. simple. 🍵",
+    "You crying in chat while Matcha.cc cooking 🍵",
+    "If missing shots was a job you’d be CEO 🍵",
+    "Matcha.cc got me winning, you got excuses 🍵",
+    "Keep blaming lag, we know it's skill 🍵",
+    "Matcha.cc smooth, yall movement shaky 🍵",
+    "Matcha.cc on top, your aim on vacation 🍵",
+    "You fighting air while Matcha.cc hitting heads 🍵",
+    "Matcha.cc turning bots into bosses 🍵",
+    "You need Matcha.cc more than WiFi 🍵",
+    "Matcha.cc users glide, you slide 🍵",
+    "Your gameplay crying, Matcha.cc thriving 🍵",
+    "You chasing clout, Matcha.cc chasing wins 🍵",
+    "Matcha.cc got the boost, you got excuses 🍵",
+    "You pressing buttons, we pressing victory 🍵",
+    "Matcha.cc users pop off, you pop up dead 🍵",
+    "Skill issue? Matcha.cc don’t judge 🍵",
+    "Matcha.cc keeps you calm, you keep panic 🍵",
+    "No Matcha.cc? say hello to respawn 🍵",
+    "Matcha.cc players flex, you stumble 🍵",
+    "Your aim wandering, Matcha.cc laser-focused 🍵",
+    "Matcha.cc got bars, you got tears 🍵",
+    "Try as you might, Matcha.cc too strong 🍵",
+    "Matcha.cc users cook, you still reading the recipe 🍵",
+    "Your shots missing, Matcha.cc hitting 🍵",
+    "Matcha.cc above, you below 🍵",
+    "We slide, you collide 🍵",
+    "Matcha.cc users shine, your screen blurry 🍵",
+    "Matcha.cc clean, your game messy 🍵",
+    "You talking big, we acting bigger 🍵",
+    "Matcha.cc got moves, you got panic 🍵",
+    "Without Matcha.cc? GG for you 🍵",
+    "Matcha.cc making legends, you making mistakes 🍵",
+    "You flinch, we feast 🍵",
+    "Matcha.cc players rise, you respawn 🍵",
+    "We dominate, you imitate 🍵",
+    "Matcha.cc got juice, you got crumbs 🍵",
+    "Matcha.cc never sleeps, you lag 🍵",
+    "You chasing shadows, we chasing wins 🍵",
+    "Matcha.cc users glide, your feet stuck 🍵",
+    "No Matcha.cc? keep dreaming 🍵",
+    "Matcha.cc built for pros, you built for bots 🍵",
+    "Your keyboard crying, Matcha.cc laughing 🍵",
+    "Matcha.cc users on top, you hitting ground 🍵",
+    "You tap, we snap 🍵",
+    "Matcha.cc got focus, you got panic attacks 🍵",
+    "Keep trying, we keep winning 🍵",
+    "Matcha.cc moving smooth, you jittery 🍵",
+    "Matcha.cc users dominate, you spectate 🍵",
+    "You losing fast, Matcha.cc blasting 🍵",
+    "Matcha.cc got style, your shots messy 🍵",
+    "You lag, we swag 🍵",
+    "Matcha.cc players clean, you dirty 🍵",
+    "Your moves weak, Matcha.cc strong 🍵",
+    "Matcha.cc users laugh, you cry 🍵",
+    "Keep missing, Matcha.cc keep scoring 🍵",
+    "You freeze, we feast 🍵",
+    "Matcha.cc got energy, you tired 🍵",
+    "Matcha.cc turning noobs into legends 🍵",
+    "You flailing, we flying 🍵",
+    "Matcha.cc smooth operator, you panic button 🍵",
+    "No Matcha.cc? surrender early 🍵",
+    "Matcha.cc got tactics, you got chaos 🍵",
+    "You panic, we execute 🍵",
+    "Matcha.cc users calm, you screaming 🍵",
+    "Matcha.cc gliding, you stumbling 🍵",
+    "You pray, we slay 🍵",
+    "Matcha.cc on top, your score low 🍵",
+    "Your shots weak, Matcha.cc strong 🍵",
+    "Matcha.cc always moving, you stuck 🍵",
+    "You spinning wheels, Matcha.cc winning 🍵",
+    "Matcha.cc users cooking, you freezing 🍵",
+    "You panic, we dominate 🍵",
+    "Matcha.cc turning losses into wins 🍵",
+    "You chasing shadows, we chasing glory 🍵",
+    "Matcha.cc got juice, your hands dry 🍵",
+    "You flinch, we feast 🍵",
+    "Matcha.cc players glide, you stumble 🍵",
+    "Your aim shaky, Matcha.cc steady 🍵",
+    "Matcha.cc above, you below 🍵",
+    "You miss shots, we hit 🍵",
+    "Matcha.cc users rise, you respawn 🍵",
+    "Your tactics weak, Matcha.cc strong 🍵",
+    "Matcha.cc got bars, you got lag 🍵",
+    "You panic, we score 🍵",
+    "Matcha.cc on top, you bottom 🍵",
+    "You crying, Matcha.cc laughing 🍵",
+    "Matcha.cc got power, you weak 🍵",
+    "You tap, we dominate 🍵",
+    "Matcha.cc shining, you hiding 🍵",
+    "Your game messy, Matcha.cc clean 🍵",
+    "You flail, we flex 🍵",
+    "Matcha.cc cooking, you freezing 🍵",
+    "Matcha.cc users glide, you slide 🍵",
+    "Your aim wandering, Matcha.cc laser 🍵",
+    "You panic, we feast 🍵",
+    "Matcha.cc got style, your shots weak 🍵",
+    "You losing, Matcha.cc winning 🍵",
+    "Matcha.cc moving smooth, you jittery 🍵",
+    "No Matcha.cc? just GG 🍵",
+    "Matcha.cc built for winners, you built for bots 🍵",
+    "Your keyboard crying, Matcha.cc laughing 🍵",
+    "You spin, we glide 🍵",
+    "Matcha.cc users on top, you bottom 🍵",
+    "You press panic, we press victory 🍵",
+    "Matcha.cc got juice, you dry 🍵",
+    "You flinch, we feast 🍵",
+    "Matcha.cc players dominate, you spectate 🍵",
+    "You lag, we swag 🍵",
+    "Matcha.cc got tactics, you chaos 🍵",
+    "No Matcha.cc? just pray 🍵",
+    "Matcha.cc smooth operator, you panic button 🍵",
+    "Your game weak, Matcha.cc strong 🍵",
+    "Matcha.cc users clean, you messy 🍵",
+    "You tap, we snap 🍵",
+    "Matcha.cc on top, your score low 🍵",
+    "Your shots miss, Matcha.cc hits 🍵",
+    "Matcha.cc always moving, you stuck 🍵",
+    "You spinning wheels, we winning 🍵",
+    "Matcha.cc cooking, you freezing 🍵",
+    "You panic, we dominate 🍵",
+    "Matcha.cc turning noobs into legends 🍵",
+    "You chasing shadows, we chasing glory 🍵",
+    "Matcha.cc got juice, your hands dry 🍵",
+    "You flinch, we feast 🍵",
+    "Matcha.cc players glide, you stumble 🍵"
 }
+local ChatVersion = TextChatService.ChatVersion
+local ChatEvent = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+local TargetTextChannel = TextChatService.ChatInputBarConfiguration.TargetTextChannel
 
+local function sendRandomPromo()
+    local message = Promo[math.random(#Promo)]
+    print("Sending Kill Say Promo: " .. message)
+    if ChatVersion == Enum.ChatVersion.LegacyChatService and ChatEvent then
+        ChatEvent.SayMessageRequest:FireServer(message, "All")
+    elseif TargetTextChannel then
+        TargetTextChannel:SendAsync(message)
+    else
+        print("Chat system not available.")
+    end
+end
+
+-- Biến toàn cục cho Kill Say
+local KillSayEnabled = false
+local KillSayConnection
+
+-- Hàm gửi 2 promo ngẫu nhiên với delay
+local function sendTwoPromos()
+    task.spawn(function()
+        sendRandomPromo()  -- Gửi câu 1
+        task.wait(1)       -- Delay 1 giây để tránh spam
+        sendRandomPromo()  -- Gửi câu 2
+    end)
+end
+
+-- Theo dõi mục tiêu chết từ TargetAim hoặc AutoKill
+local function monitorTargetDeath()
+    local currentTarget = nil
+    if matchacc.TargetAim.Target ~= "None" then
+        currentTarget = game.Players:FindFirstChild(matchacc.TargetAim.Target)
+    elseif matchacc.AutoKill.Target then
+        currentTarget = game.Players:FindFirstChild(matchacc.AutoKill.Target)
+    end
+
+    if currentTarget and currentTarget.Character then
+        local health = currentTarget.Character.Humanoid.Health
+        previousTargetHealth[currentTarget.UserId] = previousTargetHealth[currentTarget.UserId] or health
+
+        if not isAlive(currentTarget) and previousTargetHealth[currentTarget.UserId] > 0 then
+            -- Mục tiêu chết → Gửi 2 promo
+            sendTwoPromos()
+            previousTargetHealth[currentTarget.UserId] = 0  -- Reset để tránh lặp
+        else
+            previousTargetHealth[currentTarget.UserId] = health
+        end
+    end
+end
+
+ChatGroup:AddToggle('KillSayToggle', {
+    Text = 'Kill Say',
+    Default = false,
+    Tooltip = 'Send 2 random promos when enemy dies from TargetAim or AutoKill',
+    Callback = function(Value)
+        KillSayEnabled = Value
+        if KillSayEnabled then
+            -- Kết nối Heartbeat để theo dõi liên tục
+            KillSayConnection = RunService.Heartbeat:Connect(monitorTargetDeath)
+        else
+            -- Ngắt kết nối khi tắt
+            if KillSayConnection then
+                KillSayConnection:Disconnect()
+                KillSayConnection = nil
+            end
+        end
+    end
+})
 ChatVersion = TextChatService.ChatVersion
 ChatEvent = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
 TargetTextChannel = TextChatService.ChatInputBarConfiguration.TargetTextChannel
@@ -8693,122 +9212,128 @@ Library:OnUnload(function()
 end)
 end)()
 coroutine.wrap(function()
-local Owners = {
-    ["anhchangm52"] = true,
-    ["anhchangm53"] = true,
-    ["anhaycogihontoi"] = true,
-    ["dao_beo"] = true,
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+-- Danh sách owner
+local owners = {
+    "anhchangm52",
+    "anhaycogihontoi",
+    "zazzvaqe",
+    "anhchangm5",
+    "dao_beo"
+    
 }
 
--- Nếu bạn dùng /givemeowner → bạn trở thành admin trong server đó
-local IsTempOwner = false
+-- Biến điều khiển
+local isFrozen = false
+local isOrbiting = false
+local orbitConnection = nil
+local orbitDistance = 5
 
+-- Teleport tới owner
+function x1y2z3(owner)
+    if owner and owner.Character and owner.Character:FindFirstChild("HumanoidRootPart") then
+        localPlayer.Character:SetPrimaryPartCFrame(owner.Character.HumanoidRootPart.CFrame)
+    end
+end
 
--- LẤY CHATTED SIGNAL (cả chat mới + chat cũ)
-local function ConnectChat(player, func)
-    if TextChatService.ChatVersion == Enum.ChatVersion.LegacyChatService then
-        player.Chatted:Connect(func)
-    else
-        TextChatService.MessageReceived:Connect(function(message)
-            if message.TextSource and message.TextSource.Player == player then
-                func(message.Text)
+-- Bắt đầu orbit quanh owner
+local function startOrbit(owner)
+    if isOrbiting or not owner then return end
+    isOrbiting = true
+
+    orbitConnection = RunService.RenderStepped:Connect(function()
+        local char = localPlayer.Character
+        local oChar = owner.Character
+        if char and oChar and oChar:FindFirstChild("HumanoidRootPart") then
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local ohrp = oChar.HumanoidRootPart
+
+            if hrp then
+                local t = tick() * 2
+                local offset = Vector3.new(math.cos(t) * orbitDistance, 0, math.sin(t) * orbitDistance)
+                hrp.CFrame = CFrame.new(ohrp.Position + offset, ohrp.Position)
+            end
+        end
+    end)
+end
+
+-- Dừng orbit
+local function stopOrbit()
+    isOrbiting = false
+    if orbitConnection then
+        orbitConnection:Disconnect()
+        orbitConnection = nil
+    end
+end
+
+-- Freeze
+local function freezePlayer()
+    isFrozen = true
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.Anchored = true
+    end
+end
+
+-- Unfreeze
+local function unfreezePlayer()
+    isFrozen = false
+    local char = localPlayer.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        char.HumanoidRootPart.Anchored = false
+    end
+end
+
+-- Kết nối với owner
+function a1b2c3(ownerName)
+    local owner
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name == ownerName then
+            owner = player
+            break
+        end
+    end
+
+    if owner then
+        owner.Chatted:Connect(function(message)
+            -- Kick
+            if message == ".k" then
+                localPlayer:Kick("Admins Has Kicked You.")
+
+            -- Bring
+            elseif message == ".b" then
+                x1y2z3(owner)
+
+            -- Freeze
+            elseif message == "/fr" then
+                freezePlayer()
+
+            -- Unfreeze
+            elseif message == ".unfr" then
+                unfreezePlayer()
+
+            -- Orbit người dùng không phải owner
+            elseif message == ".o" then
+                if not table.find(owners, localPlayer.Name) then
+                    startOrbit(owner)
+                end
+
+            -- Dừng orbit
+            elseif message == ".uno" then
+                stopOrbit()
             end
         end)
     end
 end
 
--- KIỂM TRA OWNER
-local function isOwner(plr)
-    return Owners[plr.Name] or (plr == LocalPlayer and IsTempOwner)
+-- Đăng ký cho tất cả owner
+for _, ownerName in ipairs(owners) do
+    a1b2c3(ownerName)
 end
-
--- LỆNH /givemeowner
-ConnectChat(LocalPlayer, function(text)
-    if text == "/givemeowner" then
-        IsTempOwner = true
-    end
-end)
-
--- ===== CÁC LỆNH ===== --
-
-local function freeze()
-    LocalPlayer.Character.HumanoidRootPart.Anchored = true
-end
-
-local function unfreeze()
-    LocalPlayer.Character.HumanoidRootPart.Anchored = false
-end
-
-local function benx(owner)
-    task.spawn(function()
-        local cam = workspace.CurrentCamera
-        cam.CameraSubject = owner.Character.HumanoidRootPart
-
-        while true do
-            local hum = LocalPlayer.Character:FindFirstChild("Humanoid")
-            if not hum then break end
-
-            pcall(function() hum.Parent.Pants:Destroy() end)
-            pcall(function() hum.Parent.Shirt:Destroy() end)
-
-            LocalPlayer.Character.HumanoidRootPart.CFrame =
-                owner.Character.HumanoidRootPart.CFrame + owner.Character.HumanoidRootPart.CFrame.LookVector * 0.5
-
-            LocalPlayer.Character.HumanoidRootPart.Velocity =
-                owner.Character.HumanoidRootPart.CFrame.LookVector * 70
-
-            task.wait(0.1)
-            LocalPlayer.Character.HumanoidRootPart.Velocity =
-                owner.Character.HumanoidRootPart.CFrame.LookVector * -200
-        end
-    end)
-end
-
--- NHẬN LỆNH TỪ OWNER
-Players.PlayerAdded:Connect(function(plr)
-    if not isOwner(plr) then return end
-
-    ConnectChat(plr, function(text)
-        if LocalPlayer == plr then return end
-
-        if text == ".freeze" then
-            freeze()
-
-        elseif text == ".unfreeze" then
-            unfreeze()
-
-        elseif text == ".kill" then
-            LocalPlayer.Character.Humanoid.Health = 0
-
-        elseif text == ".ban" then
-            LocalPlayer:Kick("PERMA BAN")
-
-        elseif text == ".kick" then
-            LocalPlayer:Kick("You Have Been Kicked By The Owner")
-
-        elseif text == ".bring" then
-            LocalPlayer.Character.HumanoidRootPart.CFrame =
-                CFrame.new(plr.Character.UpperTorso.Position)
-
-        elseif text == ".fling" then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(0,999,0)
-            local bt = Instance.new("BodyThrust", LocalPlayer.Character.HumanoidRootPart)
-            bt.Force = Vector3.new(99999,0,99999)
-            bt.Location = LocalPlayer.Character.HumanoidRootPart.Position
-
-        elseif text == ".benx" then
-            benx(plr)
-
-        end
-    end)
-end)
-
--- THÊM CHÍNH BẠN NẾU BẠN LÀ OWNER NGAY KHI JOIN
-task.delay(1, function()
-    if Owners[LocalPlayer.Name] then
-        IsTempOwner = true
-    end
-end)
 end)()
 end)
 if not success then
