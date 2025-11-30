@@ -5224,7 +5224,7 @@ RunService.Heartbeat:Connect(function(dt)
                     RunService:UnbindFromRenderStep("RestoreStomp")
                 end)
             end
-        elseif matchacc.KillAura.StompAura then
+        elseif matchacc.KillAura.StompAura and not (TargetAimActive or AutoArmorActive or AutoLoadoutActive or BuyingAmmoActive or BuyingSingleActive) then
             local shortestDistance = math.huge
             local stompTarget
             for _, player in pairs(players:GetPlayers()) do
@@ -6504,60 +6504,7 @@ local function sendRandomPromo()
     end
 end
 
--- Biến toàn cục cho Kill Say
-local KillSayEnabled = false
-local KillSayConnection
 
--- Hàm gửi 2 promo ngẫu nhiên với delay
-local function sendTwoPromos()
-    task.spawn(function()
-        sendRandomPromo()  -- Gửi câu 1
-        task.wait(1)       -- Delay 1 giây để tránh spam
-        sendRandomPromo()  -- Gửi câu 2
-    end)
-end
-
--- Theo dõi mục tiêu chết từ TargetAim hoặc AutoKill
-local function monitorTargetDeath()
-    local currentTarget = nil
-    if matchacc.TargetAim.Target ~= "None" then
-        currentTarget = game.Players:FindFirstChild(matchacc.TargetAim.Target)
-    elseif matchacc.AutoKill.Target then
-        currentTarget = game.Players:FindFirstChild(matchacc.AutoKill.Target)
-    end
-
-    if currentTarget and currentTarget.Character then
-        local health = currentTarget.Character.Humanoid.Health
-        previousTargetHealth[currentTarget.UserId] = previousTargetHealth[currentTarget.UserId] or health
-
-        if not isAlive(currentTarget) and previousTargetHealth[currentTarget.UserId] > 0 then
-            -- Mục tiêu chết → Gửi 2 promo
-            sendTwoPromos()
-            previousTargetHealth[currentTarget.UserId] = 0  -- Reset để tránh lặp
-        else
-            previousTargetHealth[currentTarget.UserId] = health
-        end
-    end
-end
-
-ChatGroup:AddToggle('KillSayToggle', {
-    Text = 'Kill Say',
-    Default = false,
-    Tooltip = 'Send 2 random promos when enemy dies from TargetAim or AutoKill',
-    Callback = function(Value)
-        KillSayEnabled = Value
-        if KillSayEnabled then
-            -- Kết nối Heartbeat để theo dõi liên tục
-            KillSayConnection = RunService.Heartbeat:Connect(monitorTargetDeath)
-        else
-            -- Ngắt kết nối khi tắt
-            if KillSayConnection then
-                KillSayConnection:Disconnect()
-                KillSayConnection = nil
-            end
-        end
-    end
-})
 ChatVersion = TextChatService.ChatVersion
 ChatEvent = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
 TargetTextChannel = TextChatService.ChatInputBarConfiguration.TargetTextChannel
