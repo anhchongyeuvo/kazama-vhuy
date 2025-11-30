@@ -518,7 +518,15 @@ local function isAlive(plr)
 
     return true
 end
+local function isAlive2(plr)
+    if not plr or not plr.Character then return false end
+    local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then
+        return false
+    end
 
+    return true
+end
 local function KnockCheck(plr)
     if plr and plr.Character and plr.Character:FindFirstChild("BodyEffects") then
         local ko = plr.Character.BodyEffects:FindFirstChild("K.O")
@@ -910,10 +918,41 @@ TargetAimTab:AddToggle('SpectateTarget', {
         Toggles.SpectateTarget.Value = Value
     end
 })
-local ChatGroup = Tabs.Main:AddLeftGroupbox('lol ez')
-local AutoKillGroup = Tabs.Main:AddLeftGroupbox('Auto kill')
+--local ChatGroup = Tabs.Main:AddLeftGroupbox('lol ez')
+local PlayersGroup = Tabs.Main:AddLeftGroupbox('Players')
 
-AutoKillGroup:AddToggle('AutoKillEnabled', {
+PlayersGroup:AddDropdown('AutoKillTarget', {
+    SpecialType = 'Player',
+    ExcludeLocalPlayer = true,
+    Multi = false,
+    Text = 'Target',
+    Searchable = true,
+    Callback = function(Value)
+        matchacc.AutoKill.Target = Value
+    end
+})
+PlayersGroup:AddButton('Teleport to Target', function()
+    if not matchacc.AutoKill.Target or matchacc.AutoKill.Target == "" then
+        Library:Notify("Matcha.cc - No target selected!", 3)
+        return
+    end
+
+    local targetPlayer = Players:FindFirstChild(matchacc.AutoKill.Target)
+    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        Library:Notify("Matcha.cc - Target not found or no character!", 3)
+        return
+    end
+
+    local hrp = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then
+        Library:Notify("Matcha.cc - Your character not loaded!", 3)
+        return
+    end
+
+    hrp.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3) -- đứng sau lưng target 3 stud
+    Library:Notify("Teleported to " .. matchacc.AutoKill.Target, 2)
+end)
+PlayersGroup:AddToggle('AutoKillEnabled', {
     Text = 'Enabled',
     Default = false,
     Callback = function(Value)
@@ -929,7 +968,7 @@ AutoKillGroup:AddToggle('AutoKillEnabled', {
 })
 
 local autoKillSpectateConnection
-AutoKillGroup:AddToggle('AutoKillSpectate', {
+PlayersGroup:AddToggle('AutoKillSpectate', {
     Text = 'Spectate',
     Default = false,
     Callback = function(Value)
@@ -975,19 +1014,21 @@ AutoKillGroup:AddToggle('AutoKillSpectate', {
         end
     end
 })
-AutoKillGroup:AddDropdown('AutoKillTarget', {
-    SpecialType = 'Player',
-    ExcludeLocalPlayer = true,
-    Multi = false,
-    Text = 'Target',
-    Searchable = true,
-    Callback = function(Value)
-        matchacc.AutoKill.Target = Value
+Players.PlayerAdded:Connect(function(plr)
+    if plr.Name == matchacc.AutoKill.Target and matchacc.AutoKill.Spectate then
+        plr.CharacterAdded:Wait()
+        task.wait(0.5) -- đợi character load đầy đủ
+        if matchacc.AutoKill.Spectate then
+		    local targetPlr = Players:FindFirstChild(matchacc.AutoKill.Target)
+		    if not targetPlr then return end
+		    if targetPlr.Character and targetPlr.Character:FindFirstChild("Humanoid") and targetPlr.Character.Humanoid.Health > 0 then
+		        workspace.CurrentCamera.CameraSubject = targetPlr.Character.Humanoid
+		    end
+        end
     end
-})
-
-AutoKillGroup:AddToggle('AutoKillDesync', {
-    Text = 'Desync',
+end)
+PlayersGroup:AddToggle('AutoKillDesync', {
+    Text = 'Desync for autokill',
     Default = true,
     Callback = function(Value)
         matchacc.AutoKill.AutoKillDesync = Value
@@ -1007,7 +1048,7 @@ local function getValidTargets()
 end
 
 local autoKillAllConnection
-AutoKillGroup:AddToggle('AutoKillAllEnabled', {
+PlayersGroup:AddToggle('AutoKillAllEnabled', {
     Text = 'Auto Kill All',
     Default = false,
     Callback = function(Value)
@@ -1957,6 +1998,7 @@ localPlayer.CharacterAdded:Connect(OnCharacterAdded)
 
 -- Nếu character đã tồn tại, áp dụng ngay
 if localPlayer.Character then
+    task.wait(2)
     OnCharacterAdded(localPlayer.Character)
 end
 
@@ -2123,7 +2165,7 @@ local LPH_JIT_ULTRA = LPH_JIT_ULTRA or function(...) return ... end
 spawn(LPH_JIT_ULTRA(function()
     while task.wait() do
         for i, v in next, players:GetPlayers() do
-            if v ~= localPlayer and isAlive(v) then
+            if v ~= localPlayer and isAlive2(v) then
                 local drawingInstances = esp.players[v]
                 if not drawingInstances then continue end
                 if esp.enabled then
@@ -2515,6 +2557,7 @@ ESPGroup:AddSlider('ESPFadeSpeed', {
         esp.espfadespeed = Value
     end
 })
+coroutine.wrap(function()
 -- Table cho các aura (hỗ trợ nhiều)
 local Auras = {
     Selected = {},  -- Các aura được chọn từ dropdown (multi)
@@ -3042,48 +3085,101 @@ local function AttachAuras(character)
     end
 end
 
--- Listener cho CharacterAdded (attach khi spawn/respawn)
-localPlayer.CharacterAdded:Connect(AttachAuras)
-if localPlayer.Character then
-    AttachAuras(localPlayer.Character)
+--[[local AuraGroup = Tabs.Visual:AddRightGroupbox('Aura')
+
+local AuraConnection = nil
+
+local function ApplyAuras()
+    local char = localPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    -- Xóa hết aura cũ trước
+    for _, folderName in pairs({"AuraWing", "AuraWingAngel", "AuraSafe"}) do
+        local old = char:FindFirstChild(folderName) or (char:FindFirstChild("UpperTorso") or char:FindFirstChild("Torso")):FindFirstChild(folderName)
+        if old then old:Destroy() end
+    end
+
+    if not Auras.Enabled or #Auras.Selected == 0 then return end
+
+    for _, auraName in pairs(Auras.Selected) do
+        if auraName == "Wing" then
+            AttachAuraWing(char)
+        elseif auraName == "WingAngel" then
+            AttachAuraWingAngel(char)
+        elseif auraName == "Safe" then
+            AttachAuraSafe(char)
+        end
+    end
 end
 
--- UI Setup cho AuraGroup
-local AuraGroup = Tabs.Visual:AddRightGroupbox('Aura')
+-- Khi toggle bật/tắt, chọn aura, đổi màu → apply ngay lập tức
+local function StartAuraLoop()
+    if AuraConnection then AuraConnection:Disconnect() end
+    AuraConnection = RunService.Heartbeat:Connect(function()
+        if Auras.Enabled and localPlayer.Character then
+            ApplyAuras()
+        end
+    end)
+end
 
+-- UI Callbacks (chỉ cần thay callback thành gọi ApplyAuras)
 AuraGroup:AddToggle('AuraEnabledToggle', {
     Text = 'Aura Enabled',
     Default = false,
     Callback = function(Value)
         Auras.Enabled = Value
-        if localPlayer.Character then
-            AttachAuras(localPlayer.Character)  -- Re-attach để apply
+        if Value then
+            ApplyAuras()
+            StartAuraLoop() -- bắt đầu loop update realtime
+        else
+            if AuraConnection then AuraConnection:Disconnect() end
+            -- Xóa aura nếu tắt
+            pcall(function()
+                local torso = localPlayer.Character:FindFirstChild("UpperTorso") or localPlayer.Character:FindFirstChild("Torso")
+                if torso then
+                    for _, v in pairs(torso:GetChildren()) do
+                        if v.Name:find("Aura") then v:Destroy() end
+                    end
+                end
+            end)
         end
     end
 }):AddColorPicker('AuraColorPicker', {
-    Default = Color3.new(1, 1, 1),
+    Default = Color3.new(1,1,1),
     Title = 'Aura Color',
     Callback = function(Value)
         AuraColor = Value
-        if Auras.Enabled and localPlayer.Character then
-            AttachAuras(localPlayer.Character)  -- Re-attach để apply màu mới
-        end
+        ApplyAuras() -- đổi màu realtime luôn
     end
 })
 
 AuraGroup:AddDropdown('AuraSelect', {
-    Values = {'Wing', 'WingAngel', 'Safe'},  -- Thêm các aura khác vào đây
+    Values = {'Wing', 'WingAngel', 'Safe'},
     Default = {},
     Multi = true,
     Text = 'Select Auras',
     Callback = function(Value)
         Auras.Selected = Value
-        if Auras.Enabled and localPlayer.Character then
-            AttachAuras(localPlayer.Character)  -- Re-attach khi thay đổi selection
-        end
+        ApplyAuras() -- đổi aura realtime luôn
     end
 })
 
+-- Respawn vẫn giữ aura
+localPlayer.CharacterAdded:Connect(function(char)
+    char:WaitForChild("HumanoidRootPart", 10)
+    task.wait(1)
+    if Auras.Enabled then
+        ApplyAuras()
+        if Auras.Enabled then StartAuraLoop() end
+    end
+end)
+
+-- Nếu đang trong game và bật aura thì apply ngay
+if localPlayer.Character and Auras.Enabled then
+    ApplyAuras()
+    StartAuraLoop()
+end]]
+end)()
 local SelfGroup = Tabs.Visual:AddRightGroupbox('Self')
 utility = utility or {}
 
@@ -3140,7 +3236,7 @@ local function applyChams(character)
     end
 end
 local function onChamsCharacter(character)
-    task.wait(1)
+    task.wait(2)
     applyChams(character)
     character.ChildAdded:Connect(function(child)
         if child:IsA("Tool") then
@@ -3240,7 +3336,7 @@ local function ToggleTrail(Bool)
 end
 
 localPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
+    task.wait(2)
     if getgenv().trailEnabled then
         ToggleTrail(true)
     end
