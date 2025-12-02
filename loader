@@ -298,6 +298,8 @@ local matchacc = {
         HitSoundVolume = 5,
         HitNotifications = false,
         HitNotificationsTime = 3,
+		HitSkeleton = false,
+		SkeleColor = Color3.fromRGB(255, 255, 255),
 	    HitChams = {
 		    Enabled = false,
 		    Color = Color3.fromRGB(255, 255, 255),
@@ -359,7 +361,10 @@ local matchacc = {
         JumpPower = 50,  -- Default Roblox jumppower
     },
 }
-
+if not LPH_OBFUSCATED then
+    LPH_JIT = function(...) return ... end
+LPH_NO_VIRTUALIZE  = function(...) return ... end
+end
 local desync_setback = Instance.new("Part")
 desync_setback.Name = "DesyncSetback"
 desync_setback.Size = Vector3.new(2, 2, 1)
@@ -425,122 +430,143 @@ ka_tracer.Transparency = 1
 ka_tracer.Anchored = true
 ka_tracer.CanCollide = false
 ka_tracer.Parent = workspace
-local HitChamDebounce = {}
 local TweenService = game:GetService("TweenService")
-local utility = {}
-utility.clone_character = function(player, transparency, color, material, delete_hrp)
-    if not player or not player.Character then return end
-    delete_hrp = delete_hrp == nil and true or delete_hrp
+-- Add HitSkeleton function (new, similar to HitChams but for skeleton)
+local function createHitSkeleton(plr)
+    if not matchacc.HitEffects.HitSkeleton then return end
+    if not plr or not plr.Character then return end
+    local skeleton = Instance.new("Model")
+    skeleton.Name = "HitSkeleton_" .. plr.Name
+    skeleton.Parent = workspace
 
-    player.Character.Archivable = true
-    local clone = player.Character:Clone()
-    player.Character.Archivable = false
+    -- Define bones connections (simple humanoid skeleton)
+    local bones = {
+        {"Head", "UpperTorso"},
+        {"UpperTorso", "LowerTorso"},
+        {"UpperTorso", "LeftUpperArm"},
+        {"LeftUpperArm", "LeftLowerArm"},
+        {"LeftLowerArm", "LeftHand"},
+        {"UpperTorso", "RightUpperArm"},
+        {"RightUpperArm", "RightLowerArm"},
+        {"RightLowerArm", "RightHand"},
+        {"LowerTorso", "LeftUpperLeg"},
+        {"LeftUpperLeg", "LeftLowerLeg"},
+        {"LeftLowerLeg", "LeftFoot"},
+        {"LowerTorso", "RightUpperLeg"},
+        {"RightUpperLeg", "RightLowerLeg"},
+        {"RightLowerLeg", "RightFoot"}
+    }
 
-    clone.Parent = workspace
-    clone.Name = "HitCham_"
-
-    for _, part in ipairs(clone:GetChildren()) do
-        if part:IsA("MeshPart") or part:IsA("Part") then
-            part.Anchored = true
-            part.CanCollide = false
-            part.Material = Enum.Material[material or "Neon"]
-            part.Color = color
-            part.Transparency = transparency
-
-            -- Xóa face
-            if part.Name == "Head" then
-                local face = part:FindFirstChild("face")
-                if face then face:Destroy() end
-            end
-        elseif part.Name ~= "HumanoidRootPart" or delete_hrp then
-            part:Destroy()
+    for _, bone in ipairs(bones) do
+        local part1 = plr.Character:FindFirstChild(bone[1])
+        local part2 = plr.Character:FindFirstChild(bone[2])
+        if part1 and part2 then
+            local att0 = Instance.new("Attachment", part1)
+            local att1 = Instance.new("Attachment", part2)
+            att0.WorldPosition = part1.Position
+            att1.WorldPosition = part2.Position
+            local beam = Instance.new("Beam")
+            beam.Attachment0 = att0
+            beam.Attachment1 = att1
+            beam.Color = ColorSequence.new(matchacc.HitEffects.SkeleColor)
+            beam.Width0 = 0.2
+            beam.Width1 = 0.2
+            beam.Transparency = NumberSequence.new(0)
+            beam.FaceCamera = true
+            beam.Parent = skeleton
         end
     end
 
-    -- Xóa Humanoid + script
-    if clone:FindFirstChild("Humanoid") then
-        clone.Humanoid:Destroy()
-    end
-    for _, v in ipairs(clone:GetDescendants()) do
-        if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("Animator") then
-            v:Destroy()
-        end
-    end
-
-    -- Highlight siêu chất (bắt buộc để nhìn đẹp)
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = clone
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.FillColor = color
-    highlight.FillTransparency = math.max(0, transparency - 0.3)
-    highlight.OutlineColor = Color3.new(1,1,1)
-    highlight.OutlineTransparency = 0
-    highlight.Parent = clone
-
-    return clone
-end
-
-local function createHitChamWithFade(plr)
-    if not plr or not plr.Character or not matchacc.HitEffects.HitChams.Enabled then return end
-    local now = tick()
-    if HitChamDebounce[plr] and (now - HitChamDebounce[plr]) < 0.1 then return end
-    HitChamDebounce[plr] = now
-
-    plr.Character.Archivable = true
-    local clone = plr.Character:Clone()
-    plr.Character.Archivable = false
-    clone.Parent = workspace
-    clone.Name = "HitCham_"..plr.Name
-
-    -- Xóa rác
-    if clone:FindFirstChild("Humanoid") then clone.Humanoid:Destroy() end
-    for _, v in pairs(clone:GetDescendants()) do
-        if v:IsA("Script") or v:IsA("LocalScript") or v:IsA("Animator") or v.Name == "face" then
-            v:Destroy()
-        elseif v:IsA("BasePart") or v:IsA("MeshPart") then
-            v.Anchored = true
-            v.CanCollide = false
-            v.Material = Enum.Material[matchacc.HitEffects.HitChams.Material]
-            v.Color = matchacc.HitEffects.HitChams.Color
-            v.Transparency = matchacc.HitEffects.HitChams.Transparency
-        end
-    end
-
-    -- Highlight
-    local hl = Instance.new("Highlight", clone)
-    hl.FillColor = matchacc.HitEffects.HitChams.Color
-    hl.FillTransparency = matchacc.HitEffects.HitChams.Transparency - 0.2
-    hl.OutlineTransparency = 0
-    hl.OutlineColor = Color3.new(1,1,1)
-
-    -- Fade out siêu mượt
+    -- Fade out
     local tweenInfo = TweenInfo.new(
-        matchacc.HitEffects.HitChams.Lifetime,
+        matchacc.HitEffects.HitChams.Lifetime,  -- Reuse lifetime from HitChams
         Enum.EasingStyle.Sine,
         Enum.EasingDirection.InOut,
         0, true, 0
     )
-    for _, part in pairs(clone:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("MeshPart") then
-            local tween = TweenService:Create(part, tweenInfo, {Transparency = 1})
+    for _, beam in pairs(skeleton:GetChildren()) do
+        if beam:IsA("Beam") then
+            local tween = TweenService:Create(beam, tweenInfo, {Transparency = NumberSequence.new(1)})
             tween:Play()
         end
     end
-    if hl then
-        local hlTween = TweenService:Create(hl, tweenInfo, {FillTransparency = 1, OutlineTransparency = 1})
-        hlTween:Play()
-    end
-
     task.delay(matchacc.HitEffects.HitChams.Lifetime * 2, function()
-        if clone and clone.Parent then clone:Destroy() end
+        if skeleton and skeleton.Parent then skeleton:Destroy() end
     end)
 end
--- ==================== FULL HIT EFFECT SETUP - ĐẸP NHƯ NEVERLOSE / RISE ====================
--- Dán nguyên đoạn này vào cuối file matcha.cc (trước end) - Không cần chỉnh gì nữa
-
+local HitChams = LPH_NO_VIRTUALIZE(function(Player)
+    if not matchacc.HitEffects.HitChams.Enabled then return end
+    if Player and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+        Player.Character.Archivable = true
+        local Cloned = Player.Character:Clone()
+        Cloned.Name = "Player Clone"
+        local BodyParts = {
+            "Head", "UpperTorso", "LowerTorso",
+            "LeftUpperArm", "LeftLowerArm", "LeftHand",
+            "RightUpperArm", "RightLowerArm", "RightHand",
+            "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+            "RightUpperLeg", "RightLowerLeg", "RightFoot"
+        }
+        for _, Part in ipairs(Cloned:GetChildren()) do
+            if Part:IsA("BasePart") then
+                local PartValid = false
+                for _, validPart in ipairs(BodyParts) do
+                    if Part.Name == validPart then
+                        PartValid = true
+                        break
+                    end
+                end
+                if not PartValid then
+                    Part:Destroy()
+                end
+            elseif Part:IsA("Accessory") or Part:IsA("Tool") or Part.Name == "face" or Part:IsA("Shirt") or Part:IsA("Pants") or Part:IsA("Hat") then
+                Part:Destroy()
+            end
+        end
+        if Cloned:FindFirstChild("Humanoid") then
+            Cloned.Humanoid:Destroy()
+        end
+        for _, BodyPart in ipairs(Cloned:GetChildren()) do
+            if BodyPart:IsA("BasePart") then
+                BodyPart.CanCollide = false
+                BodyPart.Anchored = true
+                BodyPart.Transparency = matchacc.HitEffects.HitChams.Transparency
+                BodyPart.Color = matchacc.HitEffects.HitChams.Color
+                BodyPart.Material = Enum.Material[matchacc.HitEffects.HitChams.Material]
+            end
+        end
+        if Cloned:FindFirstChild("Head") then
+            local Head = Cloned.Head
+            Head.Transparency = matchacc.HitEffects.HitChams.Transparency
+            Head.Color = matchacc.HitEffects.HitChams.Color
+            Head.Material = Enum.Material[matchacc.HitEffects.HitChams.Material]
+            if Head:FindFirstChild("face") then
+                Head.face:Destroy()
+            end
+        end
+        Cloned.Parent = game.Workspace
+        local tweenInfo = TweenInfo.new(
+            matchacc.HitEffects.HitChams.Lifetime,
+            Enum.EasingStyle.Sine,
+            Enum.EasingDirection.InOut,
+            0,
+            true
+        )
+        for _, BodyPart in ipairs(Cloned:GetChildren()) do
+            if BodyPart:IsA("BasePart") then
+                local tween = TweenService:Create(BodyPart, tweenInfo, { Transparency = 1 })
+                tween:Play()
+            end
+        end
+        task.delay(matchacc.HitEffects.HitChams.Lifetime, function()
+            if Cloned and Cloned.Parent then
+                Cloned:Destroy()
+            end
+        end)
+    end
+end)
 -- Table lưu tất cả Hit Effect Types
 local HitEffects = {
-    ["None"] = nil,
     ["Skibidi RedRizz"] = true,
     ["Nova"] = true,
     ["Crescent Slash"] = true,
@@ -1870,35 +1896,30 @@ if not workspace:FindFirstChild("MatchaHitEffects") then
     HitEffects["AuraBurst"] = auraBurstAtt
 end
 
-local function playHitEffect(plr)
-    if not plr or not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
-    if not matchacc.HitEffects.HitEffect.Enabled then return end
-
+local function playHitEffect(character, color)
+    if not character or not matchacc.HitEffects.HitEffect.Enabled then return end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
     local effectTypes = matchacc.HitEffects.HitEffect.Type
     if type(effectTypes) ~= "table" then
         effectTypes = {effectTypes}
     end
-
     for _, effectName in ipairs(effectTypes) do
         if effectName == "None" or not HitEffects[effectName] then continue end
-
-        local hrp = plr.Character.HumanoidRootPart
         local template = workspace:FindFirstChild("MatchaHitEffects"):FindFirstChild(effectName)
         if not template then continue end
-
         local clonedAtt = template.HitEffectAttachment:Clone()
-        clonedAtt.Parent = hrp
+        clonedAtt.Parent = humanoidRootPart
         for _, emitter in pairs(clonedAtt:GetChildren()) do
             if emitter:IsA("ParticleEmitter") then
                 emitter.Enabled = true
-                -- Cập nhật màu cho multi keypoints
+                -- Cập nhật màu đúng cách: override value của keypoints với color mới
                 local originalColor = emitter.Color
                 local newKeypoints = {}
                 for _, keypoint in ipairs(originalColor.Keypoints) do
-                    table.insert(newKeypoints, ColorSequenceKeypoint.new(keypoint.Time, matchacc.HitEffects.HitEffect.Color))
+                    table.insert(newKeypoints, ColorSequenceKeypoint.new(keypoint.Time, color))
                 end
                 emitter.Color = ColorSequence.new(newKeypoints)
-
                 emitter:Emit(emitter.Rate or 1)  -- Emit với Rate nếu có, fallback 1
             end
         end
@@ -2001,8 +2022,9 @@ local function isAlive(plr)
     local be = plr.Character:FindFirstChild("BodyEffects")
     if be then
         local ko = be:FindFirstChild("K.O")
+        local ko2 = be:FindFirstChild("KO")
         local grabbed = be:FindFirstChild("GRABBING_CONSTRAINT")
-        if (ko and ko.Value) or (grabbed and grabbed.Value) then
+        if ( ko2 and ko and ko2.Value and ko.Value) or (grabbed and grabbed.Value) then
             return false
         end
     end
@@ -2584,6 +2606,19 @@ PlayersGroup:AddToggle('AutoKillAllEnabled', {
     end
 })
 local HitEffectsGroup = Tabs.Main:AddLeftGroupbox('Hit Effects')
+HitEffectsGroup:AddToggle('HitSkeleton', {
+    Text = 'Hit Skeleton',
+    Default = false,
+    Callback = function(Value)
+        matchacc.HitEffects.HitSkeleton = Value
+    end
+}):AddColorPicker('SkeleColor', {
+    Default = matchacc.HitEffects.SkeleColor,
+    Title = 'Skeleton Color',
+    Callback = function(Value)
+        matchacc.HitEffects.SkeleColor = Value
+    end
+})
 HitEffectsGroup:AddToggle('HitChamsEnabled', {
     Text = 'Hit Chams',
     Default = false,
@@ -2644,7 +2679,7 @@ HitEffectsGroup:AddToggle('HitEffectEnabled', {
 })
 
 HitEffectsGroup:AddDropdown('HitEffectType', {
-    Values = {"None", "Skibidi RedRizz", "Nova", "Crescent Slash", "Cosmic Explosion", "Coom", "Slash", "Atomic Slash", "Thunder", "Electric", "Circle", "Shock3", "Aura", "IDK", "Swirl", "AuraBurst"},
+    Values = {"Skibidi RedRizz", "Nova", "Crescent Slash", "Cosmic Explosion", "Coom", "Slash", "Atomic Slash", "Thunder", "Electric", "Circle", "Shock3", "Aura", "IDK", "Swirl", "AuraBurst"},
     Default = 0,
     Multi = true,
     Text = 'Effect Type',
@@ -3051,7 +3086,40 @@ GunModsGroup:AddToggle('RapidFireEnabled', {
     Callback = function(Value)
         matchacc.RapidFire.Enabled = Value
         if not getnamecallmethod then
-            Library:Notify("Your executor does not support this feature.", 3)
+            local iter, tbl, index = ipairs(game:GetDescendants())
+            while true do
+                local instance
+                index, instance = iter(tbl, index)
+                if index == nil then
+                    break
+                end
+                if instance.Name == "ShootingCooldown" and instance:IsA("ValueBase") then
+                    instance.Value = 0
+                end
+            end
+            game.DescendantAdded:Connect(function(newDescendant)
+                if newDescendant.Name == "ShootingCooldown" and newDescendant:IsA("ValueBase") then
+                    newDescendant.Value = 0
+                end
+            end)
+            local iter2, tbl2, index2 = ipairs(game:GetDescendants())
+            while true do
+                local instance2
+                index2, instance2 = iter2(tbl2, index2)
+                if index2 == nil then
+                    break
+                end
+                if instance2.Name == "ToleranceCooldown" and instance2:IsA("ValueBase") then
+                    instance2.Value = 0
+                end
+            end
+            game.DescendantAdded:Connect(function(newDescendant2)
+                if newDescendant2.Name == "ToleranceCooldown" and newDescendant2:IsA("ValueBase") then
+                    newDescendant2.Value = 0
+                end
+            end)
+            wait(2)
+            game.Players.LocalPlayer.Character.Humanoid.Health = 0
         end
     end
 })
@@ -3723,11 +3791,12 @@ getgenv().esp = {
     healthbartexttransparency = 0,
     renderdistance = 10000
 }
+
 local LPH_JIT_ULTRA = LPH_JIT_ULTRA or function(...) return ... end
 spawn(LPH_JIT_ULTRA(function()
     while task.wait() do
         for i, v in next, players:GetPlayers() do
-            if v ~= localPlayer and isAlive2(v) then
+            if v ~= localPlayer then
                 local drawingInstances = esp.players[v]
                 if not drawingInstances then continue end
                 if esp.enabled then
@@ -3735,14 +3804,6 @@ spawn(LPH_JIT_ULTRA(function()
                     local _, onscreen = Camera:WorldToScreenPoint(character.HumanoidRootPart.Position)
                     local distfromchar = (Camera.CFrame.Position - v.Character.HumanoidRootPart.Position).Magnitude
                     if esp.renderdistance < distfromchar then
-                        drawingInstances.Box.Visible = false
-                        drawingInstances.BoxOutline.Visible = false
-                        drawingInstances.Health.Visible = false
-                        drawingInstances.HealthOutline.Visible = false
-                        drawingInstances.Cham.Parent = nil
-                        drawingInstances.Name.Visible = false
-                        drawingInstances.HealthText.Visible = false
-                    elseif not isAlive(v) then
                         drawingInstances.Box.Visible = false
                         drawingInstances.BoxOutline.Visible = false
                         drawingInstances.Health.Visible = false
@@ -6677,10 +6738,13 @@ RunService.Heartbeat:Connect(function(dt)
 			
 			            -- Hit Chams (chỉ khi đang target bằng AutoKill hoặc TargetAim)
 			            if matchacc.HitEffects.HitChams.Enabled then
-			                createHitChamWithFade(Target)
+			                HitChams(Target)
 			            end
                         if matchacc.HitEffects.HitEffect.Enabled then
                             playHitEffect(Target)
+                        end
+                        if matchacc.HitEffects.HitSkeleton then
+                            createHitSkeleton(Target)
                         end
 			        end
 			
@@ -6710,10 +6774,13 @@ RunService.Heartbeat:Connect(function(dt)
 	
 	            -- Hit Chams
 	            if matchacc.HitEffects.HitChams.Enabled then
-	                createHitChamWithFade(TargetPlayer)
+	                HitChams(TargetPlayer)
 	            end
 				if matchacc.HitEffects.HitEffect.Enabled then
 					playHitEffect(TargetPlayer)
+				end
+				if matchacc.HitEffects.HitSkeleton then
+					createHitSkeleton(TargetPlayer)
 				end
 	        end
 	
