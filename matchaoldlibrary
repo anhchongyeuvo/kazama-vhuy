@@ -638,7 +638,7 @@ local Library do
         end
 
         CustomFont:New("Monaco", 400, "Regular", {
-            Url = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/Monaco.ttf"
+            Url = "https://github.com/anhchongyeuvo/kazama-vhuy/raw/refs/heads/main/Monaco.ttf"
         })
 
         Library.Font = CustomFont:Get("Monaco")
