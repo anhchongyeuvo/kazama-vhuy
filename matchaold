@@ -60,7 +60,62 @@ task.spawn(function()
 
 	setthreadidentity(7)
 end)
+local t = {}
 
+game:GetService("RunService").Heartbeat:Connect(function()
+    for _, c in ipairs(getconnections(game:GetService("LogService").MessageOut)) do
+        if not table.find(t, c) then
+            t[#t+1] = c
+            local u = pcall(getupvalues, c.Function) and getupvalues(c.Function) or {}
+            if #u >= 9 and type(u[9]) == "table" and type(u[9][1]) == "function" then
+                pcall(setupvalue, u[9][1], 14, function() return function(x)
+                    if type(x) == "table" then for i = 1, 4 do
+                        if type(x[i]) == "userdata" and x[i].Disconnect then pcall(x[i].Disconnect, x[i]) end
+                    end end
+                end end)
+                pcall(setupvalue, u[9][1], 1, function() task.wait(200) end)
+                local o = u[9][1]
+                pcall(hookfunction, u[9][1], function() return {} end)
+            end
+        end
+    end
+end)
+
+local success, err = pcall(function()
+    local gamerawmetatable = getrawmetatable(game)
+    setreadonly(gamerawmetatable, false)
+
+    old__namecall1 = gamerawmetatable.__namecall
+    gamerawmetatable.__namecall = newcclosure(function(self, ...)
+        local args = {...}
+        local remoteName = tostring(args[1])
+
+        local blockedRemotes = {
+            ["TeleportDetect"] = true,
+            ["CHECKER_1"] = true,
+            ["CHECKER"] = true,
+            ["GUI_CHECK"] = true,
+            ["OneMoreTime"] = true,
+            ["checkingSPEED"] = true,
+            ["BANREMOTE"] = true,
+            ["PERMAIDBAN"] = true,
+            ["KICKREMOTE"] = true,
+            ["BR_KICKPC"] = true,
+            ["BR_KICKMOBILE"] = true
+        }
+
+        if blockedRemotes[remoteName] then
+            return
+        end
+
+        return old__namecall1(self, ...)
+    end)
+end)
+
+if not success then
+    warn("[Anti-RemoteBlock] Executor not support hook metatable (__namecall). Skipped.")
+end
+warn("[+] Matcha.legit : anticheat bypassed.")
 getgenv().matcha = {
     AimEnabled = false,
     StickyAim = false,
