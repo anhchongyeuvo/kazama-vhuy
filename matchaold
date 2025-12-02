@@ -1163,7 +1163,8 @@ local silentToggle = AimbotSection:Toggle({
     Callback = function(Value)
         getgenv().matcha.SilentAimEnabled = Value
         if not getnamecallmethod then
-        Library:Notification("matcha.tea", "Your executor not support hook silentaim", 5)
+            Library:Notification("matcha.tea", "Your executor not support hook silentaim", 5)
+        end
     end
 })
 
