@@ -238,7 +238,7 @@ local isDaHood = (game.PlaceId == 2788229376)
 local chatWindow = TextChatService:FindFirstChild("ChatWindowConfiguration")
 local ChatEnabled = true
 if ChatEnabled and chatWindow then
-    chatWindow.Enabled = true -- Bật lại chat window
+    chatWindow.Enabled = true 
 end
 local Camera = workspace.CurrentCamera
 local Window = Library:CreateWindow({
@@ -248,7 +248,7 @@ local Window = Library:CreateWindow({
     Resizable = true,
     ShowCustomCursor = true,
     UnlockMouseWhileOpen = true,
-    NotifySide = "Left",
+    NotifySide = "Right",
     TabPadding = 8,
     MenuFadeTime = 0.2
 })
