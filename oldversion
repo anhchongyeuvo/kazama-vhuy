@@ -40,8 +40,6 @@ getgenv().Matcha = {
     Character = {
         WalkSpeed = false,
         WalkSpeedValue = 50,
-        Fly = false,
-        FlySpeed = 50,
         CFrameSpeed = false,
         CFrameSpeedValue = 50,
         AntiSlow = false,
@@ -721,57 +719,6 @@ NewConnection(RunService.RenderStepped, function()
     end
 end)
 
--- Fly (Simple Implementation)
-local flyConnections = {}
-local function toggleFly(enabled)
-    if enabled then
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.Parent = LocalPlayer.Character.HumanoidRootPart
-        bodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        bodyVelocity.Velocity = Vector3.zero
-
-        flyConnections[1] = RunService.RenderStepped:Connect(function()
-            local moveDirection = Vector3.zero
-            local flySpeed = getgenv().Matcha.Character.FlySpeed or 100
-
-            -- Forward / Backward
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                moveDirection = moveDirection + Camera.CFrame.LookVector
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                moveDirection = moveDirection - Camera.CFrame.LookVector
-            end
-
-            -- Left / Right
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                moveDirection = moveDirection - Camera.CFrame.RightVector
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                moveDirection = moveDirection + Camera.CFrame.RightVector
-            end
-
-            -- Up / Down
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                moveDirection = moveDirection + Vector3.new(0, 1, 0)
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                moveDirection = moveDirection - Vector3.new(0, 1, 0)
-            end
-
-            if moveDirection.Magnitude > 0 then
-                bodyVelocity.Velocity = moveDirection.Unit * flySpeed
-            else
-                bodyVelocity.Velocity = Vector3.zero
-            end
-        end)
-    else
-        for _, conn in pairs(flyConnections) do
-            conn:Disconnect()
-        end
-        table.clear(flyConnections)
-        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp and hrp:FindFirstChild("BodyVelocity") then
-            hrp.BodyVelocity:Destroy()
-        end
-    end
-end
 local RunService = game:GetService("RunService")
 local LocalPlayer = game.Players.LocalPlayer
 getgenv().Matcha.Character.Noclip = false
@@ -1864,26 +1811,6 @@ end
 local DA_HOOD_PLACEID = 2788229376 -- Da Hood
 local isDaHood = (game.PlaceId == DA_HOOD_PLACEID)
 
-local function safeFlyToggle(state)
-    if isDaHood then
-        -- Không cho bật Fly
-        getgenv().Matcha.Character.Fly = false
-        toggleFly(false)
-
-        -- Notify kiểu Library
-        Library:Notification(
-            "Fly is disabled in Da Hood. Using it may get you banned.",
-            5,
-            Color3.fromRGB(255, 200, 0) -- vàng cảnh báo
-        )
-
-        return
-    end
-
-    -- Game khác → bật bình thường
-    getgenv().Matcha.Character.Fly = state
-    toggleFly(state)
-end
 local CharacterPage = Window:Page({Name = "Character", Weapons = true}) do
     local Movement = CharacterPage:Weapon({Icon = "rbxassetid://6034509993"})
     local Avatars = CharacterPage:Weapon({Icon = "rbxassetid://16997954488"})
@@ -1893,22 +1820,6 @@ local CharacterPage = Window:Page({Name = "Character", Weapons = true}) do
     local MovementSection = Movement:Section({Name = "Movement", Size = 300})
     MovementSection:Toggle({Name = "WalkSpeed", Flag = "WalkSpeed", Callback = function(bool) getgenv().Matcha.Character.WalkSpeed = bool end}):Keybind({Name = "WalkSpeed Key", Flag = "WalkSpeedKey", Mode = "Toggle", Callback = function(bool) getgenv().Matcha.Character.WalkSpeed = bool end})
     MovementSection:Slider({Name = "WalkSpeed Value", Flag = "WalkSpeedValue", Min = 16, Max = 300, Default = 50, Callback = function(val) getgenv().Matcha.Character.WalkSpeedValue = val end})
-    MovementSection:Toggle({
-	    Name = "Fly",
-	    Flag = "Fly",
-	    Callback = function(bool)
-	        safeFlyToggle(bool)
-	    end
-	})
-	:Keybind({
-	    Name = "Fly Key",
-	    Flag = "Flykey",
-	    Mode = "Toggle",
-	    Callback = function(bool)
-	        safeFlyToggle(bool)
-	    end
-	})
-    MovementSection:Slider({Name = "Fly Speed", Flag = "FlySpeed", Min = 10, Max = 500, Default = 50, Callback = function(val) getgenv().Matcha.Character.FlySpeed = val end})
     MovementSection:Toggle({Name = "CFrame Speed", Flag = "CFrameSpeed", Callback = function(bool) getgenv().Matcha.Character.CFrameSpeed = bool end}):Keybind({Name = "CframeSpeed Key", Flag = "CframeSpeedKey", Mode = "Toggle", Callback = function(bool) getgenv().Matcha.Character.CFrameSpeed = bool end})
     MovementSection:Slider({Name = "CFrame Speed Value", Flag = "CFrameSpeedValue", Min = 10, Max = 500, Default = 50, Callback = function(val) getgenv().Matcha.Character.CFrameSpeedValue = val end})
 	-- // CẤU HÌNH BUNNYHOP
