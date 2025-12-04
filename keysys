@@ -5,7 +5,7 @@ gui.Parent = game.CoreGui
 -- Kiểm tra file keynigga.txt
 local keyVerified = false
 local snowGui = nil
-local correctKey = "matchaisbestlegit"
+local correctKey = "MatchaTeaOnTop"
 local keyFile = "keymatcha.txt"
 
 if isfile(keyFile) then
