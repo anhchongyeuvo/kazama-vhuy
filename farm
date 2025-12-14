@@ -1,0 +1,424 @@
+getgenv().main = {
+    Fps = 0,
+    Saver = false,
+    CameraVoid = true,
+}
+-- ============================================
+-- BIẾN ĐIỀU KHIỂN FARM
+-- ============================================
+local farmRunning = true
+local farmStopped = false
+-- ============================================
+-- XỬ LÝ KHI MÁU THẤP
+-- ============================================
+game:GetService("RunService").Heartbeat:Connect(function()
+    if game.Players.LocalPlayer.Character.Humanoid.Health <= 5 then
+        if game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") then
+            game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool").Parent = game.Players.LocalPlayer.Backpack
+        end
+        for _, part in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+            if part:IsA("MeshPart") or part:IsA("Part") then
+                part:Destroy()
+            end
+        end
+        for _, accessory in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+            if accessory:IsA("Accessory") then
+                accessory.Handle:Destroy()
+            end
+        end
+    end
+end)
+repeat task.wait() until game:IsLoaded()
+-- ============================================
+-- SERVICES VÀ BIẾN TOÀN CỤC
+-- ============================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
+local Player = Players.LocalPlayer
+local Currency = Player:WaitForChild("DataFolder"):WaitForChild("Currency")
+repeat task.wait() until Player.Character and Player.Character:FindFirstChild("FULLY_LOADED_CHAR")
+-- ============================================
+-- BIẾN THỐNG KÊ
+-- ============================================
+local StartMoney = Currency.Value
+local StartTime = tick()
+local Broken = 0
+local StatusText = "Auto Farm Running"
+local GuiDisabled = false
+-- ============================================
+-- TẠO PART VOID CHO CAMERA
+-- ============================================
+local voidPart = Instance.new("Part")
+voidPart.Name = "VoidPart"
+voidPart.Position = Vector3.new(0, -19999, 0)
+voidPart.Anchored = true
+voidPart.Transparency = 1
+voidPart.CanCollide = false
+voidPart.Parent = workspace
+-- ============================================
+-- XỬ LÝ GRABBING VÀ CHRISTMAS SOCK
+-- ============================================
+RunService.Heartbeat:Connect(function()
+    if not farmRunning then return end
+    if Player.Character:FindFirstChild('Christmas_Sock') then
+        Player.Character['Christmas_Sock']:Destroy()
+    end
+    local grabbingConstraint = Player.Character:FindFirstChild("GRABBING_CONSTRAINT")
+    if grabbingConstraint then
+        grabbingConstraint:Destroy()
+        local humanoid = Player.Character:FindFirstChildWhichIsA('Humanoid')
+        if humanoid then
+            humanoid.Sit = true
+        end
+    end
+end)
+-- ============================================
+-- HÀM FORMAT SỐ
+-- ============================================
+local function FormatNumber(num)
+    local str = tostring(num)
+    return str:reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+end
+-- ============================================
+-- TẠO GUI SIÊU ĐẸP 🎨
+-- ============================================
+if not Player.PlayerGui:FindFirstChild("OhioFarmGUI") then
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "OhioFarmGUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = Player.PlayerGui
+    -- Main Frame với gradient background
+    local mainFrame = Instance.new("Frame", screenGui)
+    mainFrame.Size = UDim2.new(0, 380, 0, 280)
+    mainFrame.Position = UDim2.new(0.5, -190, 0.5, -140)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    -- Shadow effect
+    local shadow = Instance.new("ImageLabel", mainFrame)
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ZIndex = 0
+    -- Corner
+    local mainCorner = Instance.new("UICorner", mainFrame)
+    mainCorner.CornerRadius = UDim.new(0, 20)
+    -- Gradient Overlay
+    local gradient = Instance.new("Frame", mainFrame)
+    gradient.Size = UDim2.new(1, 0, 0, 80)
+    gradient.Position = UDim2.new(0, 0, 0, 0)
+    gradient.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
+    gradient.BorderSizePixel = 0
+    gradient.ZIndex = 1
+    local gradientCorner = Instance.new("UICorner", gradient)
+    gradientCorner.CornerRadius = UDim.new(0, 20)
+    local gradientUI = Instance.new("UIGradient", gradient)
+    gradientUI.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(138, 43, 226)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 191, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 127))
+    }
+    gradientUI.Rotation = 45
+    -- Animated gradient
+    task.spawn(function()
+        while task.wait() do
+            TweenService:Create(gradientUI, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true), { Rotation = gradientUI.Rotation + 360 }):Play()
+            task.wait(3)
+        end
+    end)
+    -- Title với icon
+    local titleFrame = Instance.new("Frame", mainFrame)
+    titleFrame.Size = UDim2.new(1, 0, 0, 70)
+    titleFrame.Position = UDim2.new(0, 0, 0, 0)
+    titleFrame.BackgroundTransparency = 1
+    titleFrame.ZIndex = 2
+    local icon = Instance.new("TextLabel", titleFrame)
+    icon.Size = UDim2.new(0, 50, 0, 50)
+    icon.Position = UDim2.new(0, 20, 0, 10)
+    icon.BackgroundTransparency = 1
+    icon.Text = "💰"
+    icon.TextSize = 32
+    icon.ZIndex = 2
+    local title = Instance.new("TextLabel", titleFrame)
+    title.Size = UDim2.new(1, -80, 0, 30)
+    title.Position = UDim2.new(0, 75, 0, 10)
+    title.BackgroundTransparency = 1
+    title.Text = "MATCHA AUTO FARM"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 22
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.ZIndex = 2
+    local subtitle = Instance.new("TextLabel", titleFrame)
+    subtitle.Size = UDim2.new(1, -80, 0, 20)
+    subtitle.Position = UDim2.new(0, 75, 0, 40)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = "Premium Edition v2.0"
+    subtitle.TextColor3 = Color3.fromRGB(200, 200, 200)
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextSize = 14
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.TextTransparency = 0.3
+    subtitle.ZIndex = 2
+    -- Stats Container
+    local statsContainer = Instance.new("Frame", mainFrame)
+    statsContainer.Size = UDim2.new(1, -30, 0, 170)
+    statsContainer.Position = UDim2.new(0, 15, 0, 90)
+    statsContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    statsContainer.BorderSizePixel = 0
+    local statsCorner = Instance.new("UICorner", statsContainer)
+    statsCorner.CornerRadius = UDim.new(0, 15)
+    -- Stats data
+    local stats = {
+        {icon = "💵", label = "Money Earned", value = "$0", color = Color3.fromRGB(0, 255, 127)},
+        {icon = "⚡", label = "Status", value = "Running...", color = Color3.fromRGB(0, 191, 255)},
+        {icon = "🏦", label = "ATMs Broken", value = "0", color = Color3.fromRGB(255, 165, 0)},
+        {icon = "⏱️", label = "Runtime", value = "00:00:00", color = Color3.fromRGB(255, 105, 180)}
+    }
+    local statLabels = {}
+    for i, stat in ipairs(stats) do
+        local statFrame = Instance.new("Frame", statsContainer)
+        statFrame.Size = UDim2.new(1, -20, 0, 35)
+        statFrame.Position = UDim2.new(0, 10, 0, 10 + (i-1) * 40)
+        statFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+        statFrame.BorderSizePixel = 0
+        local statCorner = Instance.new("UICorner", statFrame)
+        statCorner.CornerRadius = UDim.new(0, 10)
+        -- Icon
+        local iconLabel = Instance.new("TextLabel", statFrame)
+        iconLabel.Size = UDim2.new(0, 30, 1, 0)
+        iconLabel.Position = UDim2.new(0, 5, 0, 0)
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.Text = stat.icon
+        iconLabel.TextSize = 20
+        -- Label
+        local textLabel = Instance.new("TextLabel", statFrame)
+        textLabel.Size = UDim2.new(0.5, -40, 1, 0)
+        textLabel.Position = UDim2.new(0, 40, 0, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Text = stat.label
+        textLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+        textLabel.Font = Enum.Font.Gotham
+        textLabel.TextSize = 14
+        textLabel.TextXAlignment = Enum.TextXAlignment.Left
+        -- Value
+        local valueLabel = Instance.new("TextLabel", statFrame)
+        valueLabel.Size = UDim2.new(0.5, -10, 1, 0)
+        valueLabel.Position = UDim2.new(0.5, 0, 0, 0)
+        valueLabel.BackgroundTransparency = 1
+        valueLabel.Text = stat.value
+        valueLabel.TextColor3 = stat.color
+        valueLabel.Font = Enum.Font.GothamBold
+        valueLabel.TextSize = 16
+        valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+        statLabels[i] = valueLabel
+        -- Glow effect
+        local glow = Instance.new("UIStroke", statFrame)
+        glow.Color = stat.color
+        glow.Thickness = 0
+        glow.Transparency = 0.5
+        -- Pulse animation khi có thay đổi
+        task.spawn(function()
+            while task.wait(0.1) do
+                if GuiDisabled then break end
+                local currentValue = valueLabel.Text
+                task.wait(0.5)
+                if valueLabel.Text ~= currentValue then
+                    TweenService:Create(glow, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {Thickness = 2}):Play()
+                    task.wait(0.3)
+                    TweenService:Create(glow, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {Thickness = 0}):Play()
+                end
+            end
+        end)
+    end
+    -- Close Button
+    local closeBtn = Instance.new("TextButton", mainFrame)
+    closeBtn.Size = UDim2.new(0, 35, 0, 35)
+    closeBtn.Position = UDim2.new(1, -45, 0, 10)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    closeBtn.Text = "×"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.TextSize = 24
+    closeBtn.ZIndex = 3
+    local closeBtnCorner = Instance.new("UICorner", closeBtn)
+    closeBtnCorner.CornerRadius = UDim.new(1, 0)
+    closeBtn.MouseButton1Click:Connect(function()
+        TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), { Size = UDim2.new(0, 0, 0, 0) }):Play()
+        task.wait(0.3)
+        screenGui:Destroy()
+    end)
+    -- Hover effect
+    closeBtn.MouseEnter:Connect(function()
+        TweenService:Create(closeBtn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(255, 80, 80), Size = UDim2.new(0, 38, 0, 38) }):Play()
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        TweenService:Create(closeBtn, TweenInfo.new(0.2), { BackgroundColor3 = Color3.fromRGB(255, 50, 50), Size = UDim2.new(0, 35, 0, 35) }):Play()
+    end)
+    -- Entrance animation
+    mainFrame.Size = UDim2.new(0, 0, 0, 0)
+    TweenService:Create(mainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Size = UDim2.new(0, 380, 0, 280) }):Play()
+    -- Cập nhật GUI liên tục
+    task.spawn(function()
+        while task.wait(0.5) do
+            if GuiDisabled then break end
+            local moneyEarned = Currency.Value - StartMoney
+            local runtime = tick() - StartTime
+            local hours = math.floor(runtime / 3600)
+            local minutes = math.floor((runtime % 3600) / 60)
+            local seconds = math.floor(runtime % 60)
+            statLabels[1].Text = "$" .. FormatNumber(moneyEarned)
+            statLabels[2].Text = StatusText
+            statLabels[3].Text = tostring(Broken)
+            statLabels[4].Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
+        end
+    end)
+end
+-- ============================================
+-- ANTI-AFK
+-- ============================================
+Player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+setfpscap(getgenv().main.Fps)
+if getgenv().main.Saver then
+    RunService:Set3dRenderingEnabled(false)
+end
+-- ============================================
+-- HÀM FARM CASHIER CHÍNH
+-- ============================================
+local function startCashierFarm()
+    while farmRunning do
+        task.wait()
+        if not Player.Character or not Player.Character:FindFirstChild("HumanoidRootPart") then continue end
+        local combat = Player.Backpack:FindFirstChild("Combat") or Player.Character:FindFirstChild("Combat")
+        if combat and combat.Parent ~= Player.Character then
+            combat.Parent = Player.Character
+        end
+        local cashier = nil
+        for _, npc in ipairs(workspace.Cashiers:GetChildren()) do
+            if npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 and npc.Name ~= "VAULT" then
+                cashier = npc
+                break
+            end
+        end
+        if not cashier then continue end
+        repeat
+            if not farmRunning then break end
+            pcall(function()
+                Player.Character.HumanoidRootPart.CFrame = cashier.Head.CFrame * CFrame.new(1, -4.3, 0) * CFrame.Angles(0, math.rad(180), 0)
+                if combat then
+                    combat:Activate()
+                end
+            end)
+            task.wait()
+        until cashier.Humanoid.Health <= 0 or not farmRunning
+        if not farmRunning then break end
+        Broken = Broken + 1
+        if combat and combat.Parent == Player.Character then
+            combat.Parent = Player.Backpack
+        end
+        for _, drop in ipairs(workspace.Ignored.Drop:GetChildren()) do
+            if not farmRunning then break end
+            if drop.Name == "MoneyDrop" and (drop.Position - Player.Character.HumanoidRootPart.Position).Magnitude < 30 then
+                repeat
+                    if not farmRunning then break end
+                    local clickDetector = drop:FindFirstChildOfClass("ClickDetector")
+                    if clickDetector then
+                        pcall(function()
+                            fireclickdetector(clickDetector)
+                        end)
+                    end
+                    task.wait()
+                until not drop.Parent or not farmRunning
+            end
+        end
+    end
+    farmStopped = true
+    StatusText = "Farm Stopped"
+    print("Auto Farm đã dừng hoàn toàn!")
+end
+-- ============================================
+-- SERVER HOP
+-- ============================================
+local placeId = game.PlaceId
+local function findNewServer()
+    local servers = {}
+    local cursor = ""
+    while true do
+        local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?limit=100&cursor="..cursor
+        local success, data = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if not success then break end
+        for _, server in ipairs(data.data) do
+            if server.id ~= game.JobId and server.playing < server.maxPlayers then
+                table.insert(servers, server.id)
+            end
+        end
+        cursor = data.nextPageCursor
+        if not cursor then break end
+    end
+    if #servers > 0 then
+        return servers[math.random(1, #servers)]
+    end
+end
+
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    repeat wait() until character:FindFirstChild("Humanoid")
+    wait(1)
+    if farmRunning then
+        if getgenv().main.CameraVoid then
+            workspace.CurrentCamera.CameraSubject = voidPart
+            Player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+            Player.CameraMaxZoomDistance = math.huge
+            Player.CameraMinZoomDistance = math.huge
+        end
+        startCashierFarm()
+    end
+end)
+-- ============================================
+-- LỆNH .STOP VÀ .START
+-- ============================================
+Player.Chatted:Connect(function(message)
+    if message:lower() == ".stop" then
+        farmRunning = false
+        StatusText = "Stopping Farm..."
+        if getgenv().main.CameraVoid then
+            workspace.CurrentCamera.CameraSubject = Player.Character.Humanoid
+            Player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Zoom
+            Player.CameraMaxZoomDistance = 400
+            Player.CameraMinZoomDistance = 0.5
+        end
+        repeat task.wait() until farmStopped
+    elseif message:lower() == ".start" then
+        if not farmRunning then
+            farmRunning = true
+            farmStopped = false
+            StatusText = "Auto Farm Running"
+            if getgenv().main.CameraVoid then
+                workspace.CurrentCamera.CameraSubject = voidPart
+                Player.DevCameraOcclusionMode = Enum.DevCameraOcclusionMode.Invisicam
+                Player.CameraMaxZoomDistance = math.huge
+                Player.CameraMinZoomDistance = math.huge
+            end
+            startCashierFarm()
+        end
+    end
+end)
+if getgenv().main.CameraVoid then
+    workspace.CurrentCamera.CameraSubject = voidPart
+    Player.CameraMaxZoomDistance = math.huge
+    Player.CameraMinZoomDistance = math.huge
+end
+startCashierFarm()
+print("🎮 Auto Farm Loaded |.stop .start ")
