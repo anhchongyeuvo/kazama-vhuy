@@ -1,8 +1,10 @@
-getgenv().main = {
-    Fps = 0,
-    Saver = false,
-    CameraVoid = true,
-}
+if not getgenv().main then
+    getgenv().main = {
+        Fps = 0,
+        Saver = false,
+        CameraVoid = true,
+    }
+end
 -- ============================================
 -- BIẾN ĐIỀU KHIỂN FARM
 -- ============================================
