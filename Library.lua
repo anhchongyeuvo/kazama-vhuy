@@ -299,7 +299,7 @@ else
     Library.IsMobile = (Library.DevicePlatform == Enum.Platform.Android or Library.DevicePlatform == Enum.Platform.IOS)
 end
 
-Library.MinSize = if Library.IsMobile then Vector2.new(490, 200) else Vector2.new(500, 600)
+Library.MinSize = if Library.IsMobile then Vector2.new(490, 200) else Vector2.new(500, 700)
 
 --// Rainbow Handler \\--
 local RainbowStep = 0
@@ -471,7 +471,7 @@ function Library:SetDPIScale(value: number)
     assert(type(value) == "number", "Expected type number for DPI scale but got " .. typeof(value))
     
     DPIScale = value / 100
-    Library.MinSize = (if Library.IsMobile then Vector2.new(490, 200) else Vector2.new(490, 300)) * DPIScale
+    Library.MinSize = (if Library.IsMobile then Vector2.new(490, 200) else Vector2.new(500, 700)) * DPIScale
 end
 
 function Library:SafeCallback(Func, ...)
